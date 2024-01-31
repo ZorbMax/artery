@@ -1,0 +1,1 @@
+add_opp_run(junction CONFIG omnetpp.ini)
