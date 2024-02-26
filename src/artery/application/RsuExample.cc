@@ -20,6 +20,7 @@
 #include <vanetza/dcc/profile.hpp>
 #include <vanetza/geonet/interface.hpp>
 #include <vanetza/btp/ports.hpp>
+#include <vanetza/security/certificate.hpp>
 
 using namespace omnetpp;
 using namespace vanetza;
@@ -40,11 +41,12 @@ RsuExample::~RsuExample()
 void RsuExample::indicate(const btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
 	Enter_Method("indicate");
-	std::cout << "RSU received\n";
 
 	if (packet->getByteLength() == 42) {
 		EV_INFO << "packet indication on channel " << net.channel << "\n";
 		std::cout << "RSU received : " << *packet << "\n";
+		security::Certificate cert;
+
 	}
 
 	delete(packet);
@@ -54,6 +56,7 @@ void RsuExample::initialize()
 {
 	ItsG5Service::initialize();
 	m_self_msg = new cMessage("RSU Example Service");
+
 
 	scheduleAt(simTime() + 3, m_self_msg);
 }
@@ -79,11 +82,10 @@ void RsuExample::trigger()
 	Enter_Method("trigger");
 
 	/// use an ITS-AID reserved for testing purposes
-	static const vanetza::ItsAid example_its_aid = 16480;
+	/*static const vanetza::ItsAid example_its_aid = 16480;
 
 	auto& mco = getFacilities().get_const<MultiChannelPolicy>();
 	auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
-	std::cout << "RSU sending\n";
 
 	for (auto channel : mco.allChannels(example_its_aid)) {
 		auto network = networks.select(channel);
@@ -95,7 +97,6 @@ void RsuExample::trigger()
 			req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP2));
 			req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
 			req.gn.its_aid = example_its_aid;
-			std::cout << "RSU sending\n";
 
 			cPacket* packet = new cPacket("RSU send packet");
 			packet->setByteLength(42);
@@ -105,7 +106,7 @@ void RsuExample::trigger()
 		} else {
 			EV_ERROR << "No network interface available for channel " << channel << "\n";
 		}
-	}
+	}*/
 }
 
 void RsuExample::receiveSignal(cComponent* source, simsignal_t signal, cObject*, cObject*)

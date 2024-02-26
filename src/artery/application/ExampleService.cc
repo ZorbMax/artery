@@ -20,6 +20,7 @@
 #include <vanetza/dcc/profile.hpp>
 #include <vanetza/geonet/interface.hpp>
 #include <vanetza/btp/ports.hpp>
+#include <string>
 
 using namespace omnetpp;
 using namespace vanetza;
@@ -44,8 +45,11 @@ void ExampleService::indicate(const btp::DataIndication& ind, cPacket* packet, c
 	Enter_Method("indicate");
 	
 
-	if (packet->getByteLength() == 42) {	
-		std::cout << "Vehicle received : " << *packet << "\n";
+	if (packet->getByteLength() == 42) {
+		auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+		const std::string id = vehicle.getVehicleId();
+
+		std::cout << "Vehicle received " << id << " : " << *packet << "\n";
 		EV_INFO << "packet indication on channel " << net.channel << "\n";
 	}
 
@@ -57,6 +61,9 @@ void ExampleService::initialize()
 	ItsG5Service::initialize();
 	m_self_msg = new cMessage("Example Service");
 	subscribe(scSignalCamReceived);
+
+	auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+	const std::string id = vehicle.getVehicleId();
 
 	scheduleAt(simTime() + 3, m_self_msg);
 }
@@ -83,10 +90,12 @@ void ExampleService::trigger()
 
 	// use an ITS-AID reserved for testing purposes
 	static const vanetza::ItsAid example_its_aid = 16480;
-	std::cout << "Vehicle sending\n";
 
 	auto& mco = getFacilities().get_const<MultiChannelPolicy>();
 	auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+
+	auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+	const std::string id = vehicle.getVehicleId();
 
 	for (auto channel : mco.allChannels(example_its_aid)) {
 		auto network = networks.select(channel);
@@ -98,9 +107,10 @@ void ExampleService::trigger()
 			req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
 			req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
 			req.gn.its_aid = example_its_aid;
-			std::cout << "Vehicle send one\n";
 
-			cPacket* packet = new cPacket("Vehicle send packet");
+			std::string content = id  + "-enrollrequest";
+			const char* content_cstr = content.c_str();
+			cPacket* packet = new cPacket(content_cstr);
 			packet->setByteLength(42);
 
 			// send packet on specific network interface

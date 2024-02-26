@@ -23,6 +23,7 @@ add_library(core SHARED
     application/PeriodicLoadService.cc
     application/PersonMiddleware.cc
     application/RsuCaService.cc
+    application/RsuExample.cc
     application/RtcmMockMessage.cc
     application/RtcmMockReceiver.cc
     application/RtcmMockService.cc
