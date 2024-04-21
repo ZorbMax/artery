@@ -14,7 +14,7 @@ void RevocationAuthorityService::initialize()
     mTimer = &getFacilities().get_const<Timer>();
     mBackend = vanetza::security::create_backend("backend_cryptopp"); // Three different backends but this one seems very suitable, we create it here
     mKeyPair = mBackend->generate_key_pair(); // Generate a key pair for the RA using the cryptopp backend
-    mCrlGenInterval = 60.0; // Generate CRL every 60 seconds
+    mCrlGenInterval = 60.0; // Generate CRL, for example, every 60 seconds
     mNextCrlGenTime = mTimer->getCurrentTime() + mCrlGenInterval; 
 }
 
@@ -84,30 +84,5 @@ void RevocationAuthorityService::signCrl() {
 
 void RevocationAuthorityService::broadcastCrl()
 {
-    // Create a GeoNetPacket containing the signed CRL
-    auto packet = std::make_unique<GeoNetPacket>(vanetza::geonet::GeoNetProtocolVersion::latest);
-    packet->insertPayload(mSignedCrl);
-
-    // Set the destination to broadcast
-    packet->setDestination(vanetza::geonet::Area { vanetza::geonet::Continent::EUROPE });
-
-    // Set the communication profile
-    packet->setCommProfile(vanetza::geonet::CommProfile::ITS_G5);
-
-    // Set the maximum hop limit
-    packet->setMaxHopLimit(5);
-
-    // Create a BTP data request
-    vanetza::btp::DataRequestB request;
-    request.destination_port = host_cast<uint16_t>(mChannel);
-    request.gn.its_aid = aid::CA;
-    request.gn.transport_type = vanetza::geonet::TransportType::GBC;
-    request.gn.traffic_class.tc_id(static_cast<unsigned>(vanetza::dcc::Profile::DP2));
-    request.gn.communication_profile = vanetza::geonet::CommunicationProfile::ITS_G5;
-
-    // Broadcast the CRL
-    using namespace vanetza;
-    btp::DataRequestB dataRequest(request);
-    dataRequest.data = std::move(packet);
-    request(dataRequest, std::move(dataRequest.data));
+    // Implement broadcast logic + also need serializeCRL() and deserializeCRL()
 }
