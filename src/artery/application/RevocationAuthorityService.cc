@@ -11,29 +11,18 @@ using namespace artery;
 void RevocationAuthorityService::initialize()
 {
     // Initialize the service
-    mTimer = &getFacilities().get_const<Timer>();
+    ItsG5BaseService::initialize();
     mBackend = vanetza::security::create_backend("backend_cryptopp"); // Three different backends but this one seems very suitable, we create it here
     mKeyPair = mBackend->generate_key_pair(); // Generate a key pair for the RA using the cryptopp backend
     mCrlGenInterval = 60.0; // Generate CRL, for example, every 60 seconds
-    mNextCrlGenTime = mTimer->getCurrentTime() + mCrlGenInterval; 
 }
 
 void RevocationAuthorityService::trigger()
 {
-    auto now = mTimer->getCurrentTime();
-    if (now >= mNextCrlGenTime) { // Check if current time has reached next CRL gen time
-        generateCrl();
-        signCrl();
-        broadcastCrl();
-        mNextCrlGenTime = now + mCrlGenInterval; // Update next CRL gen time
-    }
-}
-
-void RevocationAuthorityService::indicate(const vanetza::btp::DataIndication&, std::unique_ptr<vanetza::UpPacket> packet)
-{
-    // Process received packets if needed
-    // For example, handle certificate revocation requests from authorities
-    // and add the requested certificates to the revocation list
+    // This triggers the generation and broadcast of CRL, should be done periodically?
+    generateCrl();
+    signCrl();
+    broadcastCrl();
 }
 
 void RevocationAuthorityService::generateCrl()
@@ -81,8 +70,43 @@ void RevocationAuthorityService::signCrl() {
     mSignedCrl = raCert;
 }
 
-
-void RevocationAuthorityService::broadcastCrl()
+void RevocationAuthority::broadcastCRL()
 {
-    // Implement broadcast logic + also need serializeCRL() and deserializeCRL()
+    // Create a ShbDataRequest with default parameters
+    vanetza::geonet::ShbDataRequest shbRequest;
+
+    // Set the necessary parameters (vanetza/geonet/data_request.hpp)
+    shbRequest.upper_protocol = vanetza::geonet::UpperProtocol::BTP_B;
+    shbRequest.communication_profile = vanetza::geonet::CommunicationProfile::ITS_G5;
+    shbRequest.its_aid = vanetza::aid::CRL;
+    shbRequest.maximum_lifetime = vanetza::geonet::Lifetime(vanetza::units::seconds(60));
+    shbRequest.max_hop_limit = 10;
+    shbRequest.traffic_class = vanetza::geonet::TrafficClass::TC_ST;
+
+    // Serialize the CRL into a byte buffer
+    std::vector<uint8_t> serializedCRL = serializeCRL();
+
+    // Create a DataRequestVariant and set it to the ShbDataRequest
+    vanetza::geonet::DataRequestVariant request = std::move(shbRequest);
+
+    // Access the payload of the DataRequestVariant and set the serialized CRL
+    vanetza::access_request(request).payload = std::move(serializedCRL);
+
+    // Create a GeoNetworking router
+    vanetza::geonet::Router gnRouter;
+
+    // Broadcast the CRL using GN
+    gnRouter.request(request);
+}
+
+std::vector<uint8_t> RevocationAuthorityService::serializeCRL() const
+{
+    // Create a byte buffer to store the serialized CRL
+    std::vector<uint8_t> serializedCRL;
+
+    // Serialize the signed CRL certificate
+    // How, where?
+    // Serialize the revoked certificate IDs
+
+    return serializedCRL;
 }

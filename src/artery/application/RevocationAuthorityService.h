@@ -2,26 +2,29 @@
 #define REVOCATION_AUTHORITY_SERVICE_H_
 
 #include "artery/application/ItsG5BaseService.h"
-#include "artery/utility/Channel.h"
+#include <vanetza/security/backend.hpp>
 #include <vanetza/security/certificate.hpp>
+#include <set>
 
-namespace artery
-{
+namespace artery {
 
-class RevocationAuthorityService : public ItsG5BaseService
-{
+class RevocationAuthorityService : public ItsG5BaseService {
 public:
     void initialize() override;
     void trigger() override;
-    void indicate(const vanetza::btp::DataIndication&, std::unique_ptr<vanetza::UpPacket>) override;
 
 private:
+    std::unique_ptr<vanetza::security::Backend> mBackend;
+    vanetza::security::KeyPair mKeyPair;
+    double mCrlGenInterval;
+    std::set<vanetza::ByteBuffer> mRevokedCertIds;
+    std::set<vanetza::ByteBuffer> mCrl;
+    vanetza::security::Certificate mSignedCrl;
+
     void generateCrl();
     void signCrl();
     void broadcastCrl();
-
-    vanetza::security::CertificateRevocationList mCrl;
-    Channel mChannel;
+    std::vector<uint8_t> serializeCrl() const;
 };
 
 } // namespace artery
