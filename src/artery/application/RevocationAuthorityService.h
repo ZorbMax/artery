@@ -2,11 +2,19 @@
 #define REVOCATION_AUTHORITY_SERVICE_H_
 
 #include "artery/application/ItsG5BaseService.h"
-#include <vanetza/security/backend.hpp>
+#include <vanetza/security/backend_cryptopp.hpp>
 #include <vanetza/security/certificate.hpp>
 #include <set>
+#include <vector>
 
 namespace artery {
+
+struct CustomCRL
+{
+    vanetza::geonet::Timestamp timeStamp;
+    std::vector<vanetza::security::HashedId8> revokedCertificates;
+    vanetza::security::EcdsaSignature signature;
+};
 
 class RevocationAuthorityService : public ItsG5BaseService {
 public:
@@ -15,16 +23,16 @@ public:
 
 private:
     std::unique_ptr<vanetza::security::Backend> mBackend;
-    vanetza::security::KeyPair mKeyPair;
+    vanetza::security::ecdsa256::KeyPair mKeyPair;
     double mCrlGenInterval;
     std::set<vanetza::ByteBuffer> mRevokedCertIds;
-    std::set<vanetza::ByteBuffer> mCrl;
-    vanetza::security::Certificate mSignedCrl;
+    CustomCRL masterCRL;
+    vanetza::security::Certificate mSignedCert;
 
-    void generateCrl();
-    void signCrl();
-    void broadcastCrl();
-    std::vector<uint8_t> serializeCrl() const;
+    CRLMessage* createAndSignCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
+    vanetza::ByteBuffer createCRLMessage(const CustomCRL& crl);
+    void createSignedRACertificate();
+    void broadcastCRLMessage(CRLMessage* crlMessage);
 };
 
 } // namespace artery
