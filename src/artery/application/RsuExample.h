@@ -18,6 +18,8 @@
 
 #include "artery/application/ItsG5Service.h"
 #include "artery/application/NetworkInterface.h"
+#include <vanetza/security/basic_elements.hpp>
+#include <vanetza/security/certificate.hpp>
 
 namespace artery
 {

@@ -70,6 +70,15 @@ add_library(core SHARED
     utility/IdentityRegistry.cc
     utility/FilterRules.cc
     utility/Geometry.cc
+    #application/certify/extract-public-key.cpp
+    #application/certify/generate-aa.cpp
+    application/certify/generate-key.cpp
+    application/certify/generate-root.cpp
+    application/certify/generate-certificate.cpp
+    #application/certify/generate-ticket.cpp
+    #application/certify/show-certificate.cpp
+    #application/certify/utils.cpp
+    application/tools/PublicKey.cc
 )
 target_link_libraries(artery INTERFACE core)
 add_library(Artery::Core ALIAS core)
