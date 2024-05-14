@@ -5,23 +5,26 @@
 #include <vector>
 #include <vanetza/security/certificate.hpp>
 
-class CRLMessage : public omnetpp::cPacket
-{
+class CRLMessage : public omnetpp::cPacket {
 public:
     CRLMessage(const char* name = nullptr, short kind = 0);
-
-    virtual CRLMessage* dup() const override;
     virtual void parsimPack(omnetpp::cCommBuffer* buffer) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer* buffer) override;
 
-    // Getter methods for the CRL data
+    // Getters
     omnetpp::simtime_t getTimestamp() const;
-    std::vector<vanetza::security::HashedId8>& getRevokedCertificates();
-    // Setter for the signature
+    const std::vector<vanetza::security::HashedId8>& getRevokedCertificates() const;
+    const vanetza::security::EcdsaSignature& getSignature() const;
+    const vanetza::security::Certificate& getSignerCertificate() const;
+
+    // Setters
+    void setRevokedCertificates(const std::vector<vanetza::security::HashedId8>& revokedCertificates);
     void setSignature(const vanetza::security::EcdsaSignature& signature);
+    void setSignerCertificate(const vanetza::security::Certificate& certificate);
 
 private:
     omnetpp::simtime_t mTimestamp;
     std::vector<vanetza::security::HashedId8> mRevokedCertificates;
     vanetza::security::EcdsaSignature mSignature;
+    vanetza::security::Certificate mSignerCertificate;
 };

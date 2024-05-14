@@ -8,30 +8,41 @@
 #include <vanetza/security/subject_info.hpp>
 #include <vanetza/common/byte_buffer.hpp>
 #include <omnetpp.h>
+#include <vanetza/geonet/router.hpp>
+#include <vanetza/geonet/data_confirm.hpp>
 
 using namespace artery;
 
 void RevocationAuthorityService::initialize()
 {
-    // Initialize the service
     ItsG5BaseService::initialize();
 
-    // Three different backends but this one seems very suitable, we create it here
+    // Initialize the service
     mBackend = vanetza::security::create_backend("backend_cryptopp");
-
-    // Cast the Backend pointer to BackendCryptoPP and generate the key pair
     auto* cryptoPPBackend = dynamic_cast<vanetza::security::BackendCryptoPP*>(mBackend.get());
     mKeyPair = cryptoPPBackend->generate_key_pair();
+    mCrlGenInterval = 5.0;
+    createSignedRACertificate();
 
-    // Generate CRL, for example, every 60 seconds
-    mCrlGenInterval = 60.0;
+    // Schedule the first CRL generation
+    mTriggerMessage = new omnetpp::cMessage("CRL trigger");
+    scheduleAt(omnetpp::simTime() + mCrlGenInterval, mTriggerMessage);
 }
 
 void RevocationAuthorityService::trigger()
 {
-    // This triggers the generation and broadcast of CRL, should be done periodically?
-    createSignedRACertificate();
-    broadcastCRLMessage();
+    Enter_Method("trigger");
+
+    // Generate and sign the CRL
+    std::vector<vanetza::security::Certificate> revokedCertificates;
+    // Add revoked certificates to the revokedCertificates vector based on your revocation criteria
+    CRLMessage* signedCRLMessage = createAndSignCRL(revokedCertificates);
+
+    // Broadcast the signed CRL message
+    broadcastCRLMessage(signedCRLMessage);
+
+    // Schedule the next CRL generation
+    scheduleAt(omnetpp::simTime() + mCrlGenInterval, mTriggerMessage);
 }
 
 CRLMessage* RevocationAuthorityService::createAndSignCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
@@ -40,39 +51,59 @@ CRLMessage* RevocationAuthorityService::createAndSignCRL(const std::vector<vanet
     CRLMessage* crlMessage = new CRLMessage("CRL");
 
     // Step 2: Set the timestamp of the CRLMessage
-    //crlMessage->setTimestamp(simTime());
+    crlMessage->setTimestamp(omnetpp::simTime().dbl());
 
-    // Step 3: Iterate over the revoked certificates and add their hashes to the CRLMessage
+    // Step 3: Create a new vector to store the revoked certificate hashes
+    std::vector<vanetza::security::HashedId8> revokedCertHashes;
+
+    // Step 4: Iterate over the revoked certificates and add their hashes to the vector
     for (const auto& cert : revokedCertificates) {
         vanetza::security::HashedId8 hashedId = vanetza::security::calculate_hash(cert);
-        crlMessage->getRevokedCertificates().push_back(hashedId);
+        revokedCertHashes.push_back(hashedId);
     }
 
-    // Step 4: Sign the CRL using the RA private key
-    vanetza::security::EcdsaSignature signature;
+    // Step 5: Set the revoked certificate hashes in the CRLMessage object
+    crlMessage->setRevokedCertificates(revokedCertHashes);
+
+    // Step 6: Set the signer's certificate in the CRLMessage objecta
+    crlMessage->setSignerCertificate(mSignedCert);
+
+    // Step 7: Create the signature for the CRLMessage
+    vanetza::security::EcdsaSignature ecdsaSignature;
     auto* cryptoPPBackend = dynamic_cast<vanetza::security::BackendCryptoPP*>(mBackend.get());
     if (cryptoPPBackend) {
-        std::ostringstream crlStream;
-        vanetza::ByteBuffer crlBuffer(crlStream.str().begin(), crlStream.str().end());
-        signature = cryptoPPBackend->sign_data(mKeyPair.private_key, crlBuffer);
+        std::stringstream crlStream;
+        crlStream << *crlMessage;
+        std::string crlString = crlStream.str();
+        vanetza::ByteBuffer crlBuffer(crlString.begin(), crlString.end());
+        ecdsaSignature = cryptoPPBackend->sign_data(mKeyPair.private_key, crlBuffer);
     }
 
-    // Step 5: Set the signature of the CRLMessage
-    crlMessage->setSignature(signature);
+    // Step 8: Set the signature in the CRLMessage object
+    crlMessage->setSignature(ecdsaSignature);
 
     return crlMessage;
 }
 
-void RevocationAuthorityService::broadcastCRLMessage(CRLMessage* crlMessage)
+void RevocationAuthorityService::broadcastCRLMessage(CRLMessage* signedCRLMessage)
 {
-    // Create a GeoNetPacket
-    auto packet = new GeoNetPacket();
+    Enter_Method("broadcastCRLMessage");
 
-    // Delete the CRLMessage object
-    delete crlMessage;
+    using namespace vanetza;
+    btp::DataRequestB request;
+    request.destination_port = host_cast<uint16_t>(0x00FF);
+    request.gn.its_aid = aid::CRL;
+    request.gn.transport_type = geonet::TransportType::SHB;
+    request.gn.maximum_lifetime = geonet::Lifetime { geonet::Lifetime::Base::One_Second, 1 };
+    request.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+    request.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
 
-    // Delete the GeoNetPacket object
-    delete packet;
+    using CrlByteBuffer = convertible::byte_buffer_impl<CRLMessage>;
+    std::unique_ptr<geonet::DownPacket> payload { new geonet::DownPacket() };
+    std::unique_ptr<CRLMessage> crlMessage { signedCRLMessage };
+    std::unique_ptr<convertible::byte_buffer> buffer { new CrlByteBuffer(std::move(crlMessage)) };
+    payload->layer(OsiLayer::Application) = std::move(buffer);
+    this->request(request, std::move(payload));
 }
 
 void RevocationAuthorityService::createSignedRACertificate()
