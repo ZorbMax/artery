@@ -1,0 +1,5 @@
+<services>
+    <service type="artery.application.VehicleCRLService">
+        <listener port="2001"/>
+    </service>
+</services>
