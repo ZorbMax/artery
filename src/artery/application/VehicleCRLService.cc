@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+Define_Module(artery::VehicleCRLService);
+
 namespace artery {
 
 void VehicleCRLService::initialize()

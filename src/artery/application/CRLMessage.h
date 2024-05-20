@@ -1,9 +1,11 @@
-// CRLMessage.h
 #pragma once
 
 #include <omnetpp.h>
 #include <vector>
 #include <vanetza/security/certificate.hpp>
+#include <vanetza/security/signature.hpp>
+#include <vanetza/security/hashed_id.hpp>
+#include <vanetza/asn1/asn1c_conversion.hpp>
 
 class CRLMessage : public omnetpp::cPacket {
 public:
@@ -19,8 +21,13 @@ public:
 
     // Setters
     void setRevokedCertificates(const std::vector<vanetza::security::HashedId8>& revokedCertificates);
-    void setSignature(const vanetza::security::EcdsaSignature& signature);
+    void setSignature(const vanetza::security::Signature& signature);
     void setSignerCertificate(const vanetza::security::Certificate& certificate);
+
+    // ASN.1 encoding methods
+    std::string encode() const;
+    std::size_t size() const;
+    using asn1c_type = vanetza::asn1::CrlMessage;
 
 private:
     omnetpp::simtime_t mTimestamp;

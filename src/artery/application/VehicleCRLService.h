@@ -9,6 +9,7 @@
 #include <vanetza/btp/data_indication.hpp>
 #include <memory>
 #include <vector>
+#include <omnetpp.h>
 
 namespace artery {
 
