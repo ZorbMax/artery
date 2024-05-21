@@ -1,21 +1,25 @@
 #include "VehicleCRLService.h"
+
 #include "CRLMessage.h"
+
+#include <omnetpp.h>
+#include <vanetza/btp/data_indication.hpp>
 #include <vanetza/security/backend.hpp>
 #include <vanetza/security/certificate.hpp>
 #include <vanetza/security/public_key.hpp>
-#include <vanetza/btp/data_indication.hpp>
-#include <omnetpp.h>
+
 #include <memory>
 #include <vector>
 
 Define_Module(artery::VehicleCRLService);
 
-namespace artery {
+namespace artery
+{
 
 void VehicleCRLService::initialize()
 {
     // Initialize the service
-    ItsG5BaseService::initialize();
+    ItsG5Service::initialize();
 
     // Create the security backend
     mBackend = vanetza::security::create_backend("backend_cryptopp");
@@ -29,18 +33,9 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
     Enter_Method("indicate");
 
     if (packet != nullptr) {
-        std::string content = packet->getName();
-        size_t pos = content.find("|");
-        if (pos != std::string::npos) {
-            std::string tag = content.substr(0, pos);
-            std::string data = content.substr(pos + 1);
-
-            if (tag == "CRLMessage") {
-                auto crlMessage = dynamic_cast<CRLMessage*>(packet);
-                if (crlMessage != nullptr) {
-                    handleCRLMessage(crlMessage);
-                }
-            }
+        auto crlMessage = dynamic_cast<CRLMessage*>(packet);
+        if (crlMessage != nullptr) {
+            handleCRLMessage(crlMessage);
         }
     }
 }
@@ -70,16 +65,17 @@ void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
 
 bool VehicleCRLService::verifyCRLSignature(const CRLMessage* crlMessage, const vanetza::security::ecdsa256::PublicKey& publicKey)
 {
-    // Get the signature from the CRL message
-    const auto& signature = crlMessage->getSignature();
-
     // Create a byte buffer from the CRL message content
     std::ostringstream stream;
-    stream << crlMessage->getTimestamp();
+    int64_t timestamp_int = crlMessage->getTimestamp().raw();
+    stream.write(reinterpret_cast<const char*>(&timestamp_int), sizeof(timestamp_int));
     for (const auto& hashedId : crlMessage->getRevokedCertificates()) {
         stream.write(reinterpret_cast<const char*>(hashedId.data()), hashedId.size());
     }
     vanetza::ByteBuffer crlContent(stream.str().begin(), stream.str().end());
+
+    // Get the signature from the CRL message
+    const auto& signature = crlMessage->getSignature();
 
     // Verify the signature using the public key
     bool isValid = false;
@@ -111,15 +107,13 @@ vanetza::security::ecdsa256::PublicKey VehicleCRLService::extractPublicKey(const
 {
     // Iterate over the certificate's subject attributes to find the public key
     for (const auto& attribute : certificate.subject_attributes) {
-        if (boost::get<vanetza::security::VerificationKey>(&attribute)) {
-            const auto& verificationKey = boost::get<vanetza::security::VerificationKey>(attribute);
-            if (boost::get<vanetza::security::ecdsa_nistp256_with_sha256>(&verificationKey.key)) {
-                const auto& publicKeyData = boost::get<vanetza::security::ecdsa_nistp256_with_sha256>(verificationKey.key).public_key;
+        if (auto verificationKey = boost::get<vanetza::security::VerificationKey>(&attribute)) {
+            if (auto key = boost::get<vanetza::security::ecdsa_nistp256_with_sha256>(&verificationKey->key)) {
+                const auto& publicKeyData = key->public_key;
                 vanetza::security::ecdsa256::PublicKey publicKey;
-                if (boost::get<vanetza::security::Uncompressed>(&publicKeyData)) {
-                    const auto& uncompressedPoint = boost::get<vanetza::security::Uncompressed>(publicKeyData);
-                    std::copy(uncompressedPoint.x.begin(), uncompressedPoint.x.end(), publicKey.x.begin());
-                    std::copy(uncompressedPoint.y.begin(), uncompressedPoint.y.end(), publicKey.y.begin());
+                if (auto uncompressedPoint = boost::get<vanetza::security::Uncompressed>(&publicKeyData)) {
+                    std::copy(uncompressedPoint->x.begin(), uncompressedPoint->x.end(), publicKey.x.begin());
+                    std::copy(uncompressedPoint->y.begin(), uncompressedPoint->y.end(), publicKey.y.begin());
                     return publicKey;
                 }
             }
@@ -130,4 +124,4 @@ vanetza::security::ecdsa256::PublicKey VehicleCRLService::extractPublicKey(const
     return vanetza::security::ecdsa256::PublicKey();
 }
 
-} // namespace artery
+}  // namespace artery

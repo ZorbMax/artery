@@ -1,33 +1,34 @@
-#pragma once
+#ifndef CRL_MESSAGE_H_
+#define CRL_MESSAGE_H_
 
 #include <omnetpp.h>
-#include <vector>
+#include <vanetza/security/basic_elements.hpp>
 #include <vanetza/security/certificate.hpp>
 #include <vanetza/security/signature.hpp>
-#include <vanetza/security/hashed_id.hpp>
-#include <vanetza/asn1/asn1c_conversion.hpp>
 
-class CRLMessage : public omnetpp::cPacket {
+#include <vector>
+
+class CRLMessage : public omnetpp::cPacket
+{
 public:
     CRLMessage(const char* name = nullptr, short kind = 0);
+
+    // Serialization support
     virtual void parsimPack(omnetpp::cCommBuffer* buffer) const override;
     virtual void parsimUnpack(omnetpp::cCommBuffer* buffer) override;
 
-    // Getters
+    // Getters and Setters
     omnetpp::simtime_t getTimestamp() const;
+    void setTimestamp(omnetpp::simtime_t timestamp);
+
     const std::vector<vanetza::security::HashedId8>& getRevokedCertificates() const;
-    const vanetza::security::EcdsaSignature& getSignature() const;
-    const vanetza::security::Certificate& getSignerCertificate() const;
-
-    // Setters
     void setRevokedCertificates(const std::vector<vanetza::security::HashedId8>& revokedCertificates);
-    void setSignature(const vanetza::security::Signature& signature);
-    void setSignerCertificate(const vanetza::security::Certificate& certificate);
 
-    // ASN.1 encoding methods
-    std::string encode() const;
-    std::size_t size() const;
-    using asn1c_type = vanetza::asn1::CrlMessage;
+    const vanetza::security::EcdsaSignature& getSignature() const;
+    void setSignature(const vanetza::security::EcdsaSignature& signature);
+
+    const vanetza::security::Certificate& getSignerCertificate() const;
+    void setSignerCertificate(const vanetza::security::Certificate& certificate);
 
 private:
     omnetpp::simtime_t mTimestamp;
@@ -35,3 +36,9 @@ private:
     vanetza::security::EcdsaSignature mSignature;
     vanetza::security::Certificate mSignerCertificate;
 };
+
+// Custom serialization functions
+void serialize(vanetza::OutputArchive& ar, const CRLMessage& crlMessage);
+void deserialize(vanetza::InputArchive& ar, CRLMessage& crlMessage);
+
+#endif /* CRL_MESSAGE_H_ */

@@ -1,21 +1,26 @@
 #ifndef REVOCATION_AUTHORITY_SERVICE_H_
 #define REVOCATION_AUTHORITY_SERVICE_H_
 
-#include "artery/application/ItsG5BaseService.h"
 #include "CRLMessage.h"
+#include "artery/application/ItsG5BaseService.h"
+
+#include <omnetpp.h>
 #include <vanetza/security/backend_cryptopp.hpp>
 #include <vanetza/security/certificate.hpp>
+
 #include <set>
 #include <vector>
 
-namespace artery {
-class RevocationAuthorityService : public ItsG5BaseService {
+namespace artery
+{
+class RevocationAuthorityService : public ItsG5BaseService
+{
 public:
     void initialize() override;
-    void trigger() override;
+    // void trigger() override;
 
 private:
-    std::unique_ptr<vanetza::security::Backend> mBackend;
+    std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
     omnetpp::cMessage* mTriggerMessage;
     double mCrlGenInterval;
@@ -27,6 +32,6 @@ private:
     void broadcastCRLMessage(CRLMessage* crlMessage);
 };
 
-} // namespace artery
+}  // namespace artery
 
 #endif /* REVOCATION_AUTHORITY_SERVICE_H_ */
