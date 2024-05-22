@@ -25,12 +25,13 @@
 
 using namespace artery;
 using namespace vanetza::security;
+using namespace omnetpp;
 
 Define_Module(RevocationAuthorityService)
 
 void RevocationAuthorityService::initialize()
 {
-    ItsG5BaseService::initialize();
+    ItsG5Service::initialize();
 
     mBackend.reset(new vanetza::security::BackendCryptoPP());
     std::cout << "Backend created: " << (mBackend ? "Yes" : "No") << std::endl;
@@ -74,14 +75,14 @@ void RevocationAuthorityService::trigger()
             std::vector<vanetza::security::Certificate> revokedCertificates;
             std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
 
-            auto packet = new geonet::DownPacket();
-            packet->layer(OsiLayer::Application) = serializedMessage;
+            // Create a cPacket and set the payload
+            cPacket* packet = new cPacket("CRLMessage");
+            packet->setByteLength(serializedMessage.size());                                        
+            packet->encapsulate(new cPacket(serializedMessage.c_str(), serializedMessage.size()));
 
             std::cout << "Sending CRL message on channel " << channel << " to port " << req.destination_port << std::endl;
 
-            std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
-            payload->layer(OsiLayer::Application) = serializedMessage;
-            request(req, std::move(payload), network.get());
+            request(req, packet, network.get());
             std::cout << "CRL message sent." << std::endl;
         } else {
             std::cerr << "No network interface available for channel " << channel << std::endl;
@@ -89,21 +90,6 @@ void RevocationAuthorityService::trigger()
     }
 }
 
-// void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
-// {
-//     if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
-//         std::cout << "Received initial broadcast trigger:" << std::endl;
-//         std::cout << "  Name: " << msg->getName() << std::endl;
-
-//         std::vector<vanetza::security::Certificate> revokedCertificates;
-//         std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
-//         broadcastCRLMessage(serializedMessage);
-
-//         std::cout << "CRL message sent successfully." << std::endl;
-//     }
-
-//     delete msg;
-// }
 
 std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
 {
@@ -148,6 +134,21 @@ std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<
 
 void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
 {
+// void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
+// {
+//     if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
+//         std::cout << "Received initial broadcast trigger:" << std::endl;
+//         std::cout << "  Name: " << msg->getName() << std::endl;
+
+//         std::vector<vanetza::security::Certificate> revokedCertificates;
+//         std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
+//         broadcastCRLMessage(serializedMessage);
+
+//         std::cout << "CRL message sent successfully." << std::endl;
+//     }
+
+//     delete msg;
+// }
     using namespace vanetza;
     static const vanetza::ItsAid crl_its_aid = 622;
 

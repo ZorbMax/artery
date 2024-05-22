@@ -6,6 +6,7 @@
 #include <omnetpp.h>
 #include <vanetza/btp/data_indication.hpp>
 #include <vanetza/security/backend.hpp>
+#include <vanetza/security/basic_elements.hpp>
 #include <vanetza/security/certificate.hpp>
 #include <vanetza/security/public_key.hpp>
 
@@ -14,30 +15,46 @@
 
 Define_Module(artery::VehicleCRLService);
 
+using namespace artery;
+using namespace vanetza::security;
+using namespace omnetpp;
+
 namespace artery
 {
 
 void VehicleCRLService::initialize()
 {
-    ItsG5BaseService::initialize();
+    ItsG5Service::initialize();
     mBackend = vanetza::security::create_backend("backend_cryptopp");
     mLocalCRL.clear();
     std::cout << "VehicleCRLService initialized." << std::endl;
 }
 
-void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net)
+void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
 
     std::cout << "Received a message in VehicleCRLService on port " << ind.destination_port << " from channel " << net.channel << std::endl;
 
-    if (packet != nullptr) {
-        auto crlMessage = dynamic_cast<CRLMessage*>(packet);
-        if (crlMessage != nullptr) {
+    if (packet) {
+        cPacket* encapsulatedPacket = packet->decapsulate();  // Use decapsulate to retrieve the encapsulated packet
+        if (encapsulatedPacket) {
+            // Extract the payload from the encapsulated packet
+            const char* payload = encapsulatedPacket->getName();  // Assuming the serialized data is stored in the name
+            std::string serializedCRL(payload, encapsulatedPacket->getByteLength());
+
+            // Deserialize the CRLMessage
+            CRLMessage crlMessage;
+            crlMessage.deserializeCRL(serializedCRL);
             std::cout << "Received a CRLMessage. Processing..." << std::endl;
-            handleCRLMessage(crlMessage);
+
+            // Process the CRLMessage
+            handleCRLMessage(&crlMessage);
+
+            // Clean up the encapsulated packet
+            delete encapsulatedPacket;
         } else {
-            std::cout << "Received packet is not a CRLMessage. Ignoring." << std::endl;
+            std::cout << "Received packet does not contain an encapsulated CRLMessage. Ignoring." << std::endl;
         }
     } else {
         std::cout << "Received packet is nullptr. Ignoring." << std::endl;
@@ -48,15 +65,18 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
 
 void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
 {
-    const auto& signerCertificate = crlMessage->getSignerCertificate();
+    // Extract public key from the signer's certificate
+    const vanetza::security::Certificate& signerCertificate = crlMessage->getSignerCertificate();
     vanetza::security::ecdsa256::PublicKey publicKey = extractPublicKey(signerCertificate);
 
+    // Verify the CRL signature
     if (!verifyCRLSignature(crlMessage, publicKey)) {
         std::cout << "CRL message signature verification failed." << std::endl;
         return;
     }
 
-    const auto& revokedCertificates = crlMessage->getRevokedCertificates();
+    // Update the local CRL with the revoked certificates
+    const std::vector<HashedId8>& revokedCertificates = crlMessage->getRevokedCertificates();
     updateLocalCRL(revokedCertificates);
 
     std::cout << "CRL message processed successfully. Local CRL updated." << std::endl;

@@ -3,6 +3,7 @@
 
 #include "CRLMessage.h"
 #include "artery/application/ItsG5BaseService.h"
+#include "artery/application/ItsG5Service.h"
 
 #include <omnetpp.h>
 #include <vanetza/security/backend_cryptopp.hpp>
@@ -13,7 +14,7 @@
 
 namespace artery
 {
-class RevocationAuthorityService : public ItsG5BaseService
+class RevocationAuthorityService : public ItsG5Service
 {
 public:
     void initialize() override;
