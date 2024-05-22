@@ -17,7 +17,7 @@ class RevocationAuthorityService : public ItsG5BaseService
 {
 public:
     void initialize() override;
-    // void trigger() override;
+    void trigger() override;
 
 private:
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
@@ -30,8 +30,8 @@ private:
     std::string createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
     void broadcastCRLMessage(const std::string& serializedMessage);
 
-protected:
-    void handleMessage(omnetpp::cMessage*) override;
+    // protected:
+    //     void handleMessage(omnetpp::cMessage*) override;
 };
 
 }  // namespace artery

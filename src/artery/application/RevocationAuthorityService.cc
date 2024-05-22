@@ -5,8 +5,10 @@
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
 
+#include <arpa/inet.h>
 #include <omnetpp.h>
 #include <vanetza/btp/data_request.hpp>
+#include <vanetza/btp/ports.hpp>
 #include <vanetza/common/byte_buffer.hpp>
 #include <vanetza/geonet/data_confirm.hpp>
 #include <vanetza/geonet/router.hpp>
@@ -46,25 +48,62 @@ void RevocationAuthorityService::initialize()
     mCrlGenInterval = 5.0;
 
     // Schedule the initial CRL broadcast with a delay
-    auto delay = 2.0;
-    scheduleAt(omnetpp::simTime() + delay, new omnetpp::cMessage("Initial CRL Broadcast"));
+    // auto delay = 2.0;
+    // scheduleAt(omnetpp::simTime() + delay, new omnetpp::cMessage("Initial CRL Broadcast"));
 }
 
-void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
+void RevocationAuthorityService::trigger()
 {
-    if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
-        std::cout << "Received initial broadcast trigger:" << std::endl;
-        std::cout << "  Name: " << msg->getName() << std::endl;
+    Enter_Method("trigger");
+    using namespace vanetza;
 
-        std::vector<vanetza::security::Certificate> revokedCertificates;
-        std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
-        broadcastCRLMessage(serializedMessage);
+    static const vanetza::ItsAid crl_its_aid = 622;
+    auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+    auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-        std::cout << "CRL message sent successfully." << std::endl;
+    for (auto channel : mco.allChannels(crl_its_aid)) {
+        auto network = networks.select(channel);
+        if (network) {
+            btp::DataRequestB req;
+            req.destination_port = host_cast(getPortNumber(channel));
+            req.gn.transport_type = geonet::TransportType::SHB;
+            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+            req.gn.its_aid = crl_its_aid;
+
+            std::vector<vanetza::security::Certificate> revokedCertificates;
+            std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
+
+            auto packet = new geonet::DownPacket();
+            packet->layer(OsiLayer::Application) = serializedMessage;
+
+            std::cout << "Sending CRL message on channel " << channel << " to port " << req.destination_port << std::endl;
+
+            std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
+            payload->layer(OsiLayer::Application) = serializedMessage;
+            request(req, std::move(payload), network.get());
+            std::cout << "CRL message sent." << std::endl;
+        } else {
+            std::cerr << "No network interface available for channel " << channel << std::endl;
+        }
     }
-
-    delete msg;
 }
+
+// void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
+// {
+//     if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
+//         std::cout << "Received initial broadcast trigger:" << std::endl;
+//         std::cout << "  Name: " << msg->getName() << std::endl;
+
+//         std::vector<vanetza::security::Certificate> revokedCertificates;
+//         std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
+//         broadcastCRLMessage(serializedMessage);
+
+//         std::cout << "CRL message sent successfully." << std::endl;
+//     }
+
+//     delete msg;
+// }
 
 std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
 {
@@ -109,27 +148,37 @@ std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<
 
 void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
 {
-    Enter_Method("broadcastCRLMessage");
-
     using namespace vanetza;
-    btp::DataRequestB request;
-    request.destination_port = host_cast<uint16_t>(0x00FF);
-    request.gn.its_aid = aid::CRL;
-    request.gn.transport_type = geonet::TransportType::SHB;
-    request.gn.maximum_lifetime = geonet::Lifetime{geonet::Lifetime::Base::Ten_Seconds, 10};
-    request.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-    request.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+    static const vanetza::ItsAid crl_its_aid = 622;
 
-    // Print the serialized CRL message length
-    std::cout << "Serialized CRL message length: " << serializedMessage.length() << " bytes" << std::endl;
+    auto& facilities = getFacilities();
+    auto& mco = facilities.get_const<MultiChannelPolicy>();
+    auto& networks = facilities.get_const<NetworkInterfaceTable>();
 
-    // Directly use the serialized CRL message as the payload
-    std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
-    payload->layer(OsiLayer::Application) = serializedMessage;
+    for (auto channel : mco.allChannels(crl_its_aid)) {
+        auto network = networks.select(channel);
+        if (network) {
+            btp::DataRequestB req;
+            req.destination_port = host_cast<uint16_t>(0xFFFF);
+            req.gn.transport_type = geonet::TransportType::SHB;
+            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+            req.gn.its_aid = crl_its_aid;
 
-    // Print the payload details
-    std::cout << "  Payload size: " << payload->size() << " bytes" << std::endl;
+            std::cout << "Broadcasting CRL message on channel: " << channel << " with length: " << serializedMessage.length() << " bytes" << std::endl;
 
-    // Send the request with the payload
-    this->request(request, std::move(payload), nullptr);
+            // Create a geonet::DownPacket with the serialized CRL message as payload
+            std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
+            payload->layer(OsiLayer::Application) = serializedMessage;
+
+            // Print the payload details for debugging
+            std::cout << "Payload size: " << payload->size() << " bytes" << std::endl;
+
+            // Send the request with the payload
+            this->request(req, std::move(payload), network.get());
+            std::cout << "Broadcast request sent on channel " << channel << "." << std::endl;
+        } else {
+            std::cerr << "No network interface available for channel " << channel << std::endl;
+        }
+    }
 }

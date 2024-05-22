@@ -25,11 +25,11 @@ void VehicleCRLService::initialize()
     std::cout << "VehicleCRLService initialized." << std::endl;
 }
 
-void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet)
+void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
 
-    std::cout << "Received a message in VehicleCRLService!" << std::endl;
+    std::cout << "Received a message in VehicleCRLService on port " << ind.destination_port << " from channel " << net.channel << std::endl;
 
     if (packet != nullptr) {
         auto crlMessage = dynamic_cast<CRLMessage*>(packet);
@@ -42,6 +42,8 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
     } else {
         std::cout << "Received packet is nullptr. Ignoring." << std::endl;
     }
+
+    delete packet;
 }
 
 void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)

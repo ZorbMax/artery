@@ -20,7 +20,7 @@ class VehicleCRLService : public ItsG5BaseService
 {
 public:
     void initialize() override;
-    void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet);
+    void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net);
 
     bool isRevoked(const vanetza::security::HashedId8& certificateHash);
 

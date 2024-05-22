@@ -1,5 +1,5 @@
 <services>
     <service type="artery.application.RevocationAuthorityService">
-        <listener port="2001"/>
+        <listener port="2020"/>
     </service>
 </services>
