@@ -2,7 +2,7 @@
 #define VEHICLE_CRL_SERVICE_H_
 
 #include "CRLMessage.h"
-#include "artery/application/ItsG5Service.h"
+#include "artery/application/ItsG5BaseService.h"
 
 #include <omnetpp.h>
 #include <vanetza/btp/data_indication.hpp>
@@ -16,7 +16,7 @@
 namespace artery
 {
 
-class VehicleCRLService : public ItsG5Service
+class VehicleCRLService : public ItsG5BaseService
 {
 public:
     void initialize() override;

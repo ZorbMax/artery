@@ -13,10 +13,6 @@ class CRLMessage : public omnetpp::cPacket
 public:
     CRLMessage(const char* name = nullptr, short kind = 0);
 
-    // Serialization support
-    virtual void parsimPack(omnetpp::cCommBuffer* buffer) const override;
-    virtual void parsimUnpack(omnetpp::cCommBuffer* buffer) override;
-
     // Getters and Setters
     omnetpp::simtime_t getTimestamp() const;
     void setTimestamp(omnetpp::simtime_t timestamp);
@@ -30,15 +26,16 @@ public:
     const vanetza::security::Certificate& getSignerCertificate() const;
     void setSignerCertificate(const vanetza::security::Certificate& certificate);
 
+    std::string serializePayload() const;
+    std::string serializeCRL() const;
+    void deserializePayload(const std::string& data);
+    void deserializeCRL(const std::string& data);
+
 private:
     omnetpp::simtime_t mTimestamp;
     std::vector<vanetza::security::HashedId8> mRevokedCertificates;
     vanetza::security::EcdsaSignature mSignature;
     vanetza::security::Certificate mSignerCertificate;
 };
-
-// Custom serialization functions
-void serialize(vanetza::OutputArchive& ar, const CRLMessage& crlMessage);
-void deserialize(vanetza::InputArchive& ar, CRLMessage& crlMessage);
 
 #endif /* CRL_MESSAGE_H_ */

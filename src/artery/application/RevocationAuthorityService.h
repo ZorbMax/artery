@@ -27,9 +27,11 @@ private:
     std::set<vanetza::ByteBuffer> mRevokedCertIds;
     vanetza::security::Certificate mSignedCert;
 
-    CRLMessage* createAndSignCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
-    void createSignedRACertificate();
-    void broadcastCRLMessage(CRLMessage* crlMessage);
+    std::string createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
+    void broadcastCRLMessage(const std::string& serializedMessage);
+
+protected:
+    void handleMessage(omnetpp::cMessage*) override;
 };
 
 }  // namespace artery
