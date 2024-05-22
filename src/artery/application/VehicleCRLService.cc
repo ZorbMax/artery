@@ -37,10 +37,10 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
     std::cout << "Received a message in VehicleCRLService on port " << ind.destination_port << " from channel " << net.channel << std::endl;
 
     if (packet) {
-        cPacket* encapsulatedPacket = packet->decapsulate();  // Use decapsulate to retrieve the encapsulated packet
+        cPacket* encapsulatedPacket = packet->decapsulate();
         if (encapsulatedPacket) {
             // Extract the payload from the encapsulated packet
-            const char* payload = encapsulatedPacket->getName();  // Assuming the serialized data is stored in the name
+            const char* payload = encapsulatedPacket->getName();
             std::string serializedCRL(payload, encapsulatedPacket->getByteLength());
 
             // Deserialize the CRLMessage
@@ -51,7 +51,6 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
             // Process the CRLMessage
             handleCRLMessage(&crlMessage);
 
-            // Clean up the encapsulated packet
             delete encapsulatedPacket;
         } else {
             std::cout << "Received packet does not contain an encapsulated CRLMessage. Ignoring." << std::endl;

@@ -90,7 +90,6 @@ void RevocationAuthorityService::trigger()
     }
 }
 
-
 std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
 {
     // Step 1: Create a new CRLMessage object
@@ -132,8 +131,43 @@ std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<
     return serializedMessage;
 }
 
-void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
-{
+// void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
+// {
+//     using namespace vanetza;
+//     static const vanetza::ItsAid crl_its_aid = 622;
+
+//     auto& facilities = getFacilities();
+//     auto& mco = facilities.get_const<MultiChannelPolicy>();
+//     auto& networks = facilities.get_const<NetworkInterfaceTable>();
+
+//     for (auto channel : mco.allChannels(crl_its_aid)) {
+//         auto network = networks.select(channel);
+//         if (network) {
+//             btp::DataRequestB req;
+//             req.destination_port = host_cast<uint16_t>(0xFFFF);
+//             req.gn.transport_type = geonet::TransportType::SHB;
+//             req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+//             req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+//             req.gn.its_aid = crl_its_aid;
+
+//             std::cout << "Broadcasting CRL message on channel: " << channel << " with length: " << serializedMessage.length() << " bytes" << std::endl;
+
+//             // Create a geonet::DownPacket with the serialized CRL message as payload
+//             std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
+//             payload->layer(OsiLayer::Application) = serializedMessage;
+
+//             // Print the payload details for debugging
+//             std::cout << "Payload size: " << payload->size() << " bytes" << std::endl;
+
+//             // Send the request with the payload
+//             this->request(req, std::move(payload), network.get());
+//             std::cout << "Broadcast request sent on channel " << channel << "." << std::endl;
+//         } else {
+//             std::cerr << "No network interface available for channel " << channel << std::endl;
+//         }
+//     }
+// }
+
 // void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
 // {
 //     if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
@@ -149,37 +183,3 @@ void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializ
 
 //     delete msg;
 // }
-    using namespace vanetza;
-    static const vanetza::ItsAid crl_its_aid = 622;
-
-    auto& facilities = getFacilities();
-    auto& mco = facilities.get_const<MultiChannelPolicy>();
-    auto& networks = facilities.get_const<NetworkInterfaceTable>();
-
-    for (auto channel : mco.allChannels(crl_its_aid)) {
-        auto network = networks.select(channel);
-        if (network) {
-            btp::DataRequestB req;
-            req.destination_port = host_cast<uint16_t>(0xFFFF);
-            req.gn.transport_type = geonet::TransportType::SHB;
-            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-            req.gn.its_aid = crl_its_aid;
-
-            std::cout << "Broadcasting CRL message on channel: " << channel << " with length: " << serializedMessage.length() << " bytes" << std::endl;
-
-            // Create a geonet::DownPacket with the serialized CRL message as payload
-            std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
-            payload->layer(OsiLayer::Application) = serializedMessage;
-
-            // Print the payload details for debugging
-            std::cout << "Payload size: " << payload->size() << " bytes" << std::endl;
-
-            // Send the request with the payload
-            this->request(req, std::move(payload), network.get());
-            std::cout << "Broadcast request sent on channel " << channel << "." << std::endl;
-        } else {
-            std::cerr << "No network interface available for channel " << channel << std::endl;
-        }
-    }
-}
