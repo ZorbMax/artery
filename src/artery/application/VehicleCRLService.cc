@@ -72,7 +72,7 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
             //     vanetza::security::HashedId8& revokedCert = crlMessage->getMRevokedCertificates(i);
             // }
 
-            // Now call your processing function
+            // Call processing function
             handleCRLMessage(crlMessage);
 
             delete crlMessage;
@@ -122,7 +122,7 @@ bool VehicleCRLService::verifyCRLSignature(const CRLMessage* crlMessage, const v
     dataToVerify.insert(dataToVerify.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
     // std::cout << "Timestamp added: " << timestamp << std::endl;
 
-    // Add revoked certificates' hashes
+    // Add revoked certificates hashes
     // std::cout << "Number of revoked certificates: " << crlMessage->getMRevokedCertificatesArraySize() << std::endl;
     for (size_t i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
         auto& hash = crlMessage->getMRevokedCertificates(i);
@@ -150,12 +150,6 @@ bool VehicleCRLService::verifyCRLSignature(const CRLMessage* crlMessage, const v
     //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
     // }
     // std::cout << std::endl;
-
-    // Ensure mBackend is not null
-    if (!mBackend) {
-        std::cerr << "mBackend is nullptr!" << std::endl;
-        return false;
-    }
 
     bool isValid = false;
 

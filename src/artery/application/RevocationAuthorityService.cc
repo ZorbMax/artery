@@ -38,10 +38,8 @@ void RevocationAuthorityService::initialize()
 
     if (mBackend) {
         mKeyPair = mBackend->generate_key_pair();
-        std::cout << "Key pair generated successfully." << std::endl;
-
-        // Generate the self-signed certificate using the GenerateRoot function
         mSignedCert = GenerateRoot(mKeyPair);
+        std::cout << "Key pair and root cert successfully generated." << std::endl;
     } else {
         std::cerr << "Error: BackendCryptoPP is nullptr" << std::endl;
     }
@@ -68,12 +66,8 @@ void RevocationAuthorityService::trigger()
             req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
             req.gn.its_aid = crl_its_aid;
 
-            std::vector<vanetza::security::Certificate> revokedCertificates;
+            std::vector<vanetza::security::Certificate> revokedCertificates = generateDummyRevokedCertificates(3);
             CRLMessage* crlMessage = createAndPopulateCRL(revokedCertificates);
-
-            std::cout << "Sending CRL message on channel " << channel << " to port " << req.destination_port << std::endl;
-
-            // Send the request with the CRLMessage
             request(req, crlMessage, network.get());
             std::cout << "CRL message sent." << std::endl;
         } else {
@@ -112,7 +106,7 @@ CRLMessage* RevocationAuthorityService::createAndPopulateCRL(const std::vector<v
         uint64_t timestamp = static_cast<uint64_t>(crlMessage->getMTimestamp().dbl() * 1e9);  // Convert to nanoseconds
         dataToSign.insert(dataToSign.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
 
-        // Add revoked certificates' hashes
+        // Add revoked certificates hashes
         for (size_t i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
             auto& hash = crlMessage->getMRevokedCertificates(i);
             dataToSign.insert(dataToSign.end(), hash.data(), hash.data() + hash.size());
@@ -132,56 +126,16 @@ CRLMessage* RevocationAuthorityService::createAndPopulateCRL(const std::vector<v
     return crlMessage;
 }
 
+std::vector<vanetza::security::Certificate> artery::RevocationAuthorityService::generateDummyRevokedCertificates(size_t count)
+{
+    std::vector<vanetza::security::Certificate> revokedCerts;
 
-// void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
-// {
-//     using namespace vanetza;
-//     static const vanetza::ItsAid crl_its_aid = 622;
+    vanetza::security::ecdsa256::KeyPair dummyKeyPair = GenerateKey();
 
-//     auto& facilities = getFacilities();
-//     auto& mco = facilities.get_const<MultiChannelPolicy>();
-//     auto& networks = facilities.get_const<NetworkInterfaceTable>();
+    for (size_t i = 0; i < count; ++i) {
+        vanetza::security::Certificate dummyCert = GenerateRoot(dummyKeyPair);
+        revokedCerts.push_back(dummyCert);
+    }
 
-//     for (auto channel : mco.allChannels(crl_its_aid)) {
-//         auto network = networks.select(channel);
-//         if (network) {
-//             btp::DataRequestB req;
-//             req.destination_port = host_cast<uint16_t>(0xFFFF);
-//             req.gn.transport_type = geonet::TransportType::SHB;
-//             req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-//             req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-//             req.gn.its_aid = crl_its_aid;
-
-//             std::cout << "Broadcasting CRL message on channel: " << channel << " with length: " << serializedMessage.length() << " bytes" << std::endl;
-
-//             // Create a geonet::DownPacket with the serialized CRL message as payload
-//             std::unique_ptr<geonet::DownPacket> payload{new geonet::DownPacket()};
-//             payload->layer(OsiLayer::Application) = serializedMessage;
-
-//             // Print the payload details for debugging
-//             std::cout << "Payload size: " << payload->size() << " bytes" << std::endl;
-
-//             // Send the request with the payload
-//             this->request(req, std::move(payload), network.get());
-//             std::cout << "Broadcast request sent on channel " << channel << "." << std::endl;
-//         } else {
-//             std::cerr << "No network interface available for channel " << channel << std::endl;
-//         }
-//     }
-// }
-
-// void RevocationAuthorityService::handleMessage(omnetpp::cMessage* msg)
-// {
-//     if (msg->isSelfMessage() && strcmp(msg->getName(), "Initial CRL Broadcast") == 0) {
-//         std::cout << "Received initial broadcast trigger:" << std::endl;
-//         std::cout << "  Name: " << msg->getName() << std::endl;
-
-//         std::vector<vanetza::security::Certificate> revokedCertificates;
-//         std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
-//         broadcastCRLMessage(serializedMessage);
-
-//         std::cout << "CRL message sent successfully." << std::endl;
-//     }
-
-//     delete msg;
-// }
+    return revokedCerts;
+}

@@ -29,6 +29,7 @@ private:
     vanetza::security::Certificate mSignedCert;
 
     CRLMessage* createAndPopulateCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
+    std::vector<vanetza::security::Certificate> generateDummyRevokedCertificates(size_t count);
 };
 
 }  // namespace artery
