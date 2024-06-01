@@ -1,6 +1,6 @@
 #include "RevocationAuthorityService.h"
 
-#include "CRLMessage.h"
+#include "CRLMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
@@ -47,10 +47,6 @@ void RevocationAuthorityService::initialize()
     }
 
     mCrlGenInterval = 5.0;
-
-    // Schedule the initial CRL broadcast with a delay
-    // auto delay = 2.0;
-    // scheduleAt(omnetpp::simTime() + delay, new omnetpp::cMessage("Initial CRL Broadcast"));
 }
 
 void RevocationAuthorityService::trigger()
@@ -73,16 +69,12 @@ void RevocationAuthorityService::trigger()
             req.gn.its_aid = crl_its_aid;
 
             std::vector<vanetza::security::Certificate> revokedCertificates;
-            std::string serializedMessage = createAndSerializeCRL(revokedCertificates);
-
-            // Create a cPacket and set the payload
-            cPacket* packet = new cPacket("CRLMessage");
-            packet->setByteLength(serializedMessage.size());                                        
-            packet->encapsulate(new cPacket(serializedMessage.c_str(), serializedMessage.size()));
+            CRLMessage* crlMessage = createAndPopulateCRL(revokedCertificates);
 
             std::cout << "Sending CRL message on channel " << channel << " to port " << req.destination_port << std::endl;
 
-            request(req, packet, network.get());
+            // Send the request with the CRLMessage
+            request(req, crlMessage, network.get());
             std::cout << "CRL message sent." << std::endl;
         } else {
             std::cerr << "No network interface available for channel " << channel << std::endl;
@@ -90,46 +82,56 @@ void RevocationAuthorityService::trigger()
     }
 }
 
-std::string RevocationAuthorityService::createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
+
+CRLMessage* RevocationAuthorityService::createAndPopulateCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates)
 {
     // Step 1: Create a new CRLMessage object
     CRLMessage* crlMessage = new CRLMessage("CRL");
 
     // Step 2: Set the timestamp of the CRLMessage
-    crlMessage->setTimestamp(omnetpp::simTime());
+    crlMessage->setMTimestamp(omnetpp::simTime());
 
-    // Step 3: Create a new vector to store the revoked certificate hashes
-    std::vector<HashedId8> revokedCertHashes;
+    // Step 3: Set the size of the revoked certificates array
+    crlMessage->setMRevokedCertificatesArraySize(revokedCertificates.size());
 
-    // Step 4: Iterate over the revoked certificates and add their hashes to the vector
-    for (const auto& cert : revokedCertificates) {
-        HashedId8 hashedId = calculate_hash(cert);
-        revokedCertHashes.push_back(hashedId);
+    // Step 4: Iterate over the revoked certificates and add their hashes to the array
+    for (size_t i = 0; i < revokedCertificates.size(); ++i) {
+        vanetza::security::HashedId8 hashedId = calculate_hash(revokedCertificates[i]);
+        crlMessage->setMRevokedCertificates(i, hashedId);
     }
 
-    // Step 5: Set the revoked certificate hashes in the CRLMessage object
-    crlMessage->setRevokedCertificates(revokedCertHashes);
+    // Step 5: Set the signer's certificate in the CRLMessage object
+    crlMessage->setMSignerCertificate(mSignedCert);
 
-    // Step 6: Set the signer's certificate in the CRLMessage object
-    crlMessage->setSignerCertificate(mSignedCert);
-
-    // Step 7: Create the signature for the CRLMessage
+    // Step 6: Create the signature for the CRLMessage
     if (mBackend) {
-        std::string serializedPayload = crlMessage->serializePayload();
-        vanetza::ByteBuffer crlBuffer(serializedPayload.begin(), serializedPayload.end());
-        EcdsaSignature ecdsaSignature = mBackend->sign_data(mKeyPair.private_key, crlBuffer);
-        // Step 8: Set the signature in the CRLMessage object
-        crlMessage->setSignature(ecdsaSignature);
+        // Collect data to sign
+        vanetza::ByteBuffer dataToSign;
+
+        // Add the timestamp
+        uint64_t timestamp = static_cast<uint64_t>(crlMessage->getMTimestamp().dbl() * 1e9);  // Convert to nanoseconds
+        dataToSign.insert(dataToSign.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
+
+        // Add revoked certificates' hashes
+        for (size_t i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
+            auto& hash = crlMessage->getMRevokedCertificates(i);
+            dataToSign.insert(dataToSign.end(), hash.data(), hash.data() + hash.size());
+        }
+
+        // Add the serialized signer certificate
+        vanetza::ByteBuffer serializedCert = vanetza::security::convert_for_signing(crlMessage->getMSignerCertificate());
+        dataToSign.insert(dataToSign.end(), serializedCert.begin(), serializedCert.end());
+
+        // Generate the signature
+        vanetza::security::EcdsaSignature ecdsaSignature = mBackend->sign_data(mKeyPair.private_key, dataToSign);
+        crlMessage->setMSignature(ecdsaSignature);
     } else {
         std::cerr << "Error: BackendCryptoPP is nullptr" << std::endl;
     }
-    // Serialize the entire CRL message
-    std::string serializedMessage = crlMessage->serializeCRL();
 
-    delete crlMessage;
-
-    return serializedMessage;
+    return crlMessage;
 }
+
 
 // void RevocationAuthorityService::broadcastCRLMessage(const std::string& serializedMessage)
 // {

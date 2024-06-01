@@ -1,9 +1,8 @@
 #ifndef VEHICLE_CRL_SERVICE_H_
 #define VEHICLE_CRL_SERVICE_H_
 
-#include "CRLMessage.h"
-#include "artery/application/ItsG5BaseService.h"
-#include "artery/application/ItsG5Service.h"
+#include "CRLMessage_m.h"
+#include "ItsG5Service.h"
 
 #include <omnetpp.h>
 #include <vanetza/btp/data_indication.hpp>

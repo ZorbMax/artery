@@ -1,7 +1,7 @@
 #ifndef REVOCATION_AUTHORITY_SERVICE_H_
 #define REVOCATION_AUTHORITY_SERVICE_H_
 
-#include "CRLMessage.h"
+#include "CRLMessage_m.h"
 #include "artery/application/ItsG5BaseService.h"
 #include "artery/application/ItsG5Service.h"
 
@@ -28,11 +28,7 @@ private:
     std::set<vanetza::ByteBuffer> mRevokedCertIds;
     vanetza::security::Certificate mSignedCert;
 
-    std::string createAndSerializeCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
-    void broadcastCRLMessage(const std::string& serializedMessage);
-
-    // protected:
-    //     void handleMessage(omnetpp::cMessage*) override;
+    CRLMessage* createAndPopulateCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
 };
 
 }  // namespace artery

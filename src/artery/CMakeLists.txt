@@ -3,7 +3,7 @@ add_library(core SHARED
     StaticNodeManager.cc
     application/RevocationAuthorityService.cc
     application/VehicleCRLService.cc
-    application/CRLMessage.cc
+    application/CRLMessage_m.cc
     application/CaObject.cc
     application/CaService.cc
     application/DenmObject.cc

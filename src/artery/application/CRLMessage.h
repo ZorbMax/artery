@@ -26,9 +26,9 @@ public:
     const vanetza::security::Certificate& getSignerCertificate() const;
     void setSignerCertificate(const vanetza::security::Certificate& certificate);
 
+    // Serialization and Deserialization methods
     std::string serializePayload() const;
     std::string serializeCRL() const;
-    void deserializePayload(const std::string& data);
     void deserializeCRL(const std::string& data);
 
 private:
