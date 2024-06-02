@@ -1,5 +1,5 @@
 //
-// Generated file, do not edit! Created by nedtool 5.6 from CRLMessage.msg.
+// Generated file, do not edit! Created by nedtool 5.6 from V2VMessage.msg.
 //
 
 // Disable warnings about unused variables, empty switch stmts, etc:
@@ -24,7 +24,7 @@
 #pragma GCC diagnostic ignored "-Wfloat-conversion"
 #endif
 
-#include "CRLMessage_m.h"
+#include "V2VMessage_m.h"
 
 #include "VanetzaDescriptors.h"
 
@@ -183,236 +183,6 @@ inline std::ostream& operator<<(std::ostream& out, const std::vector<T, A>& vec)
     sprintf(buf, " (size=%u)", (unsigned int)vec.size());
     out.write(buf, strlen(buf));
     return out;
-}
-
-class vanetza__security__HashedId8Descriptor : public omnetpp::cClassDescriptor
-{
-private:
-    mutable const char** propertynames;
-
-public:
-    vanetza__security__HashedId8Descriptor();
-    virtual ~vanetza__security__HashedId8Descriptor();
-
-    virtual bool doesSupport(omnetpp::cObject* obj) const override;
-    virtual const char** getPropertyNames() const override;
-    virtual const char* getProperty(const char* propertyname) const override;
-    virtual int getFieldCount() const override;
-    virtual const char* getFieldName(int field) const override;
-    virtual int findField(const char* fieldName) const override;
-    virtual unsigned int getFieldTypeFlags(int field) const override;
-    virtual const char* getFieldTypeString(int field) const override;
-    virtual const char** getFieldPropertyNames(int field) const override;
-    virtual const char* getFieldProperty(int field, const char* propertyname) const override;
-    virtual int getFieldArraySize(void* object, int field) const override;
-
-    virtual const char* getFieldDynamicTypeString(void* object, int field, int i) const override;
-    virtual std::string getFieldValueAsString(void* object, int field, int i) const override;
-    virtual bool setFieldValueAsString(void* object, int field, int i, const char* value) const override;
-
-    virtual const char* getFieldStructName(int field) const override;
-    virtual void* getFieldStructValuePointer(void* object, int field, int i) const override;
-};
-
-Register_ClassDescriptor(vanetza__security__HashedId8Descriptor)
-
-    vanetza__security__HashedId8Descriptor::vanetza__security__HashedId8Descriptor() :
-    omnetpp::cClassDescriptor("vanetza::security::HashedId8", "omnetpp::cObject")
-{
-    propertynames = nullptr;
-}
-
-vanetza__security__HashedId8Descriptor::~vanetza__security__HashedId8Descriptor()
-{
-    delete[] propertynames;
-}
-
-bool vanetza__security__HashedId8Descriptor::doesSupport(omnetpp::cObject* obj) const
-{
-    return dynamic_cast<vanetza::security::HashedId8*>(obj) != nullptr;
-}
-
-const char** vanetza__security__HashedId8Descriptor::getPropertyNames() const
-{
-    if (!propertynames) {
-        static const char* names[] = {"existingClass", nullptr};
-        omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-        const char** basenames = basedesc ? basedesc->getPropertyNames() : nullptr;
-        propertynames = mergeLists(basenames, names);
-    }
-    return propertynames;
-}
-
-const char* vanetza__security__HashedId8Descriptor::getProperty(const char* propertyname) const
-{
-    if (!strcmp(propertyname, "existingClass"))
-        return "";
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    return basedesc ? basedesc->getProperty(propertyname) : nullptr;
-}
-
-int vanetza__security__HashedId8Descriptor::getFieldCount() const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    return basedesc ? 0 + basedesc->getFieldCount() : 0;
-}
-
-unsigned int vanetza__security__HashedId8Descriptor::getFieldTypeFlags(int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldTypeFlags(field);
-        field -= basedesc->getFieldCount();
-    }
-    return 0;
-}
-
-const char* vanetza__security__HashedId8Descriptor::getFieldName(int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldName(field);
-        field -= basedesc->getFieldCount();
-    }
-    return nullptr;
-}
-
-int vanetza__security__HashedId8Descriptor::findField(const char* fieldName) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    return basedesc ? basedesc->findField(fieldName) : -1;
-}
-
-const char* vanetza__security__HashedId8Descriptor::getFieldTypeString(int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldTypeString(field);
-        field -= basedesc->getFieldCount();
-    }
-    return nullptr;
-}
-
-const char** vanetza__security__HashedId8Descriptor::getFieldPropertyNames(int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldPropertyNames(field);
-        field -= basedesc->getFieldCount();
-    }
-    switch (field) {
-        default:
-            return nullptr;
-    }
-}
-
-const char* vanetza__security__HashedId8Descriptor::getFieldProperty(int field, const char* propertyname) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldProperty(field, propertyname);
-        field -= basedesc->getFieldCount();
-    }
-    switch (field) {
-        default:
-            return nullptr;
-    }
-}
-
-int vanetza__security__HashedId8Descriptor::getFieldArraySize(void* object, int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldArraySize(object, field);
-        field -= basedesc->getFieldCount();
-    }
-    vanetza::security::HashedId8* pp = (vanetza::security::HashedId8*)object;
-    (void)pp;
-    switch (field) {
-        default:
-            return 0;
-    }
-}
-
-const char* vanetza__security__HashedId8Descriptor::getFieldDynamicTypeString(void* object, int field, int i) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldDynamicTypeString(object, field, i);
-        field -= basedesc->getFieldCount();
-    }
-    vanetza::security::HashedId8* pp = (vanetza::security::HashedId8*)object;
-    (void)pp;
-    switch (field) {
-        default:
-            return nullptr;
-    }
-}
-
-std::string vanetza__security__HashedId8Descriptor::getFieldValueAsString(void* object, int field, int i) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldValueAsString(object, field, i);
-        field -= basedesc->getFieldCount();
-    }
-    vanetza::security::HashedId8* pp = (vanetza::security::HashedId8*)object;
-    (void)pp;
-    switch (field) {
-        default:
-            return "";
-    }
-}
-
-bool vanetza__security__HashedId8Descriptor::setFieldValueAsString(void* object, int field, int i, const char* value) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->setFieldValueAsString(object, field, i, value);
-        field -= basedesc->getFieldCount();
-    }
-    vanetza::security::HashedId8* pp = (vanetza::security::HashedId8*)object;
-    (void)pp;
-    switch (field) {
-        default:
-            return false;
-    }
-}
-
-const char* vanetza__security__HashedId8Descriptor::getFieldStructName(int field) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldStructName(field);
-        field -= basedesc->getFieldCount();
-    }
-    return nullptr;
-}
-
-void* vanetza__security__HashedId8Descriptor::getFieldStructValuePointer(void* object, int field, int i) const
-{
-    omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
-    if (basedesc) {
-        if (field < basedesc->getFieldCount())
-            return basedesc->getFieldStructValuePointer(object, field, i);
-        field -= basedesc->getFieldCount();
-    }
-    vanetza::security::HashedId8* pp = (vanetza::security::HashedId8*)object;
-    (void)pp;
-    switch (field) {
-        default:
-            return nullptr;
-    }
 }
 
 // class vanetza__security__EcdsaSignatureDescriptor : public omnetpp::cClassDescriptor
@@ -875,142 +645,105 @@ void* vanetza__security__HashedId8Descriptor::getFieldStructValuePointer(void* o
 //     }
 // }
 
-Register_Class(CRLMessage)
+Register_Class(V2VMessage)
 
-CRLMessage::CRLMessage(const char* name, short kind) : ::omnetpp::cPacket(name, kind)
+V2VMessage::V2VMessage(const char* name, short kind) : ::omnetpp::cPacket(name, kind)
 {
-    this->mTimestamp = 0;
-    mRevokedCertificates_arraysize = 0;
-    this->mRevokedCertificates = 0;
+    this->timestamp = 0;
 }
 
-CRLMessage::CRLMessage(const CRLMessage& other) : ::omnetpp::cPacket(other)
+V2VMessage::V2VMessage(const V2VMessage& other) : ::omnetpp::cPacket(other)
 {
-    mRevokedCertificates_arraysize = 0;
-    this->mRevokedCertificates = 0;
     copy(other);
 }
 
-CRLMessage::~CRLMessage()
+V2VMessage::~V2VMessage()
 {
-    delete[] this->mRevokedCertificates;
 }
 
-CRLMessage& CRLMessage::operator=(const CRLMessage& other)
+V2VMessage& V2VMessage::operator=(const V2VMessage& other)
 {
     if (this == &other)
         return *this;
-    ::omnetpp::cMessage::operator=(other);
+    ::omnetpp::cPacket::operator=(other);
     copy(other);
     return *this;
 }
 
-void CRLMessage::copy(const CRLMessage& other)
+void V2VMessage::copy(const V2VMessage& other)
 {
-    this->mTimestamp = other.mTimestamp;
-    delete[] this->mRevokedCertificates;
-    this->mRevokedCertificates = (other.mRevokedCertificates_arraysize == 0) ? nullptr : new vanetza::security::HashedId8[other.mRevokedCertificates_arraysize];
-    mRevokedCertificates_arraysize = other.mRevokedCertificates_arraysize;
-    for (unsigned int i = 0; i < mRevokedCertificates_arraysize; i++)
-        this->mRevokedCertificates[i] = other.mRevokedCertificates[i];
-    this->mSignature = other.mSignature;
-    this->mSignerCertificate = other.mSignerCertificate;
+    this->timestamp = other.timestamp;
+    this->certificate = other.certificate;
+    this->signature = other.signature;
+    this->payload = other.payload;
 }
 
-void CRLMessage::parsimPack(omnetpp::cCommBuffer* b) const
+void V2VMessage::parsimPack(omnetpp::cCommBuffer* b) const
 {
-    ::omnetpp::cMessage::parsimPack(b);
-    doParsimPacking(b, this->mTimestamp);
-    b->pack(mRevokedCertificates_arraysize);
-    doParsimArrayPacking(b, this->mRevokedCertificates, mRevokedCertificates_arraysize);
-    doParsimPacking(b, this->mSignature);
-    doParsimPacking(b, this->mSignerCertificate);
+    ::omnetpp::cPacket::parsimPack(b);
+    doParsimPacking(b, this->timestamp);
+    doParsimPacking(b, this->certificate);
+    doParsimPacking(b, this->signature);
+    doParsimPacking(b, this->payload);
 }
 
-void CRLMessage::parsimUnpack(omnetpp::cCommBuffer* b)
+void V2VMessage::parsimUnpack(omnetpp::cCommBuffer* b)
 {
-    ::omnetpp::cMessage::parsimUnpack(b);
-    doParsimUnpacking(b, this->mTimestamp);
-    delete[] this->mRevokedCertificates;
-    b->unpack(mRevokedCertificates_arraysize);
-    if (mRevokedCertificates_arraysize == 0) {
-        this->mRevokedCertificates = 0;
-    } else {
-        this->mRevokedCertificates = new vanetza::security::HashedId8[mRevokedCertificates_arraysize];
-        doParsimArrayUnpacking(b, this->mRevokedCertificates, mRevokedCertificates_arraysize);
-    }
-    doParsimUnpacking(b, this->mSignature);
-    doParsimUnpacking(b, this->mSignerCertificate);
+    ::omnetpp::cPacket::parsimUnpack(b);
+    doParsimUnpacking(b, this->timestamp);
+    doParsimUnpacking(b, this->certificate);
+    doParsimUnpacking(b, this->signature);
+    doParsimUnpacking(b, this->payload);
 }
 
-::omnetpp::simtime_t CRLMessage::getMTimestamp() const
+::omnetpp::simtime_t V2VMessage::getTimestamp() const
 {
-    return this->mTimestamp;
+    return this->timestamp;
 }
 
-void CRLMessage::setMTimestamp(::omnetpp::simtime_t mTimestamp)
+void V2VMessage::setTimestamp(::omnetpp::simtime_t timestamp)
 {
-    this->mTimestamp = mTimestamp;
+    this->timestamp = timestamp;
 }
 
-void CRLMessage::setMRevokedCertificatesArraySize(unsigned int size)
+vanetza::security::Certificate& V2VMessage::getCertificate()
 {
-    vanetza::security::HashedId8* mRevokedCertificates2 = (size == 0) ? nullptr : new vanetza::security::HashedId8[size];
-    unsigned int sz = mRevokedCertificates_arraysize < size ? mRevokedCertificates_arraysize : size;
-    for (unsigned int i = 0; i < sz; i++)
-        mRevokedCertificates2[i] = this->mRevokedCertificates[i];
-    mRevokedCertificates_arraysize = size;
-    delete[] this->mRevokedCertificates;
-    this->mRevokedCertificates = mRevokedCertificates2;
+    return this->certificate;
 }
 
-unsigned int CRLMessage::getMRevokedCertificatesArraySize() const
+void V2VMessage::setCertificate(const vanetza::security::Certificate& certificate)
 {
-    return mRevokedCertificates_arraysize;
+    this->certificate = certificate;
 }
 
-vanetza::security::HashedId8& CRLMessage::getMRevokedCertificates(unsigned int k)
+vanetza::security::EcdsaSignature& V2VMessage::getSignature()
 {
-    if (k >= mRevokedCertificates_arraysize)
-        throw omnetpp::cRuntimeError("Array of size %d indexed by %d", mRevokedCertificates_arraysize, k);
-    return this->mRevokedCertificates[k];
+    return this->signature;
 }
 
-void CRLMessage::setMRevokedCertificates(unsigned int k, const vanetza::security::HashedId8& mRevokedCertificates)
+void V2VMessage::setSignature(const vanetza::security::EcdsaSignature& signature)
 {
-    if (k >= mRevokedCertificates_arraysize)
-        throw omnetpp::cRuntimeError("Array of size %d indexed by %d", mRevokedCertificates_arraysize, k);
-    this->mRevokedCertificates[k] = mRevokedCertificates;
+    this->signature = signature;
 }
 
-vanetza::security::EcdsaSignature& CRLMessage::getMSignature()
+const char* V2VMessage::getPayload() const
 {
-    return this->mSignature;
+    return this->payload.c_str();
 }
 
-void CRLMessage::setMSignature(const vanetza::security::EcdsaSignature& mSignature)
+void V2VMessage::setPayload(const char* payload)
 {
-    this->mSignature = mSignature;
+    this->payload = payload;
 }
 
-vanetza::security::Certificate& CRLMessage::getMSignerCertificate()
-{
-    return this->mSignerCertificate;
-}
-
-void CRLMessage::setMSignerCertificate(const vanetza::security::Certificate& mSignerCertificate)
-{
-    this->mSignerCertificate = mSignerCertificate;
-}
-
-class CRLMessageDescriptor : public omnetpp::cClassDescriptor
+class V2VMessageDescriptor : public omnetpp::cClassDescriptor
 {
 private:
     mutable const char** propertynames;
 
 public:
-    CRLMessageDescriptor();
-    virtual ~CRLMessageDescriptor();
+    V2VMessageDescriptor();
+    virtual ~V2VMessageDescriptor();
 
     virtual bool doesSupport(omnetpp::cObject* obj) const override;
     virtual const char** getPropertyNames() const override;
@@ -1032,25 +765,25 @@ public:
     virtual void* getFieldStructValuePointer(void* object, int field, int i) const override;
 };
 
-Register_ClassDescriptor(CRLMessageDescriptor)
+Register_ClassDescriptor(V2VMessageDescriptor)
 
-    CRLMessageDescriptor::CRLMessageDescriptor() :
-    omnetpp::cClassDescriptor("CRLMessage", "omnetpp::cMessage")
+    V2VMessageDescriptor::V2VMessageDescriptor() :
+    omnetpp::cClassDescriptor("V2VMessage", "omnetpp::cPacket")
 {
     propertynames = nullptr;
 }
 
-CRLMessageDescriptor::~CRLMessageDescriptor()
+V2VMessageDescriptor::~V2VMessageDescriptor()
 {
     delete[] propertynames;
 }
 
-bool CRLMessageDescriptor::doesSupport(omnetpp::cObject* obj) const
+bool V2VMessageDescriptor::doesSupport(omnetpp::cObject* obj) const
 {
-    return dynamic_cast<CRLMessage*>(obj) != nullptr;
+    return dynamic_cast<V2VMessage*>(obj) != nullptr;
 }
 
-const char** CRLMessageDescriptor::getPropertyNames() const
+const char** V2VMessageDescriptor::getPropertyNames() const
 {
     if (!propertynames) {
         static const char* names[] = {nullptr};
@@ -1061,19 +794,19 @@ const char** CRLMessageDescriptor::getPropertyNames() const
     return propertynames;
 }
 
-const char* CRLMessageDescriptor::getProperty(const char* propertyname) const
+const char* V2VMessageDescriptor::getProperty(const char* propertyname) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     return basedesc ? basedesc->getProperty(propertyname) : nullptr;
 }
 
-int CRLMessageDescriptor::getFieldCount() const
+int V2VMessageDescriptor::getFieldCount() const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     return basedesc ? 4 + basedesc->getFieldCount() : 4;
 }
 
-unsigned int CRLMessageDescriptor::getFieldTypeFlags(int field) const
+unsigned int V2VMessageDescriptor::getFieldTypeFlags(int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1083,14 +816,14 @@ unsigned int CRLMessageDescriptor::getFieldTypeFlags(int field) const
     }
     static unsigned int fieldTypeFlags[] = {
         FD_ISEDITABLE,
-        FD_ISARRAY | FD_ISCOMPOUND | FD_ISCOBJECT,
         FD_ISCOMPOUND | FD_ISCOBJECT,
         FD_ISCOMPOUND | FD_ISCOBJECT,
+        FD_ISEDITABLE,
     };
     return (field >= 0 && field < 4) ? fieldTypeFlags[field] : 0;
 }
 
-const char* CRLMessageDescriptor::getFieldName(int field) const
+const char* V2VMessageDescriptor::getFieldName(int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1099,30 +832,30 @@ const char* CRLMessageDescriptor::getFieldName(int field) const
         field -= basedesc->getFieldCount();
     }
     static const char* fieldNames[] = {
-        "mTimestamp",
-        "mRevokedCertificates",
-        "mSignature",
-        "mSignerCertificate",
+        "timestamp",
+        "certificate",
+        "signature",
+        "payload",
     };
     return (field >= 0 && field < 4) ? fieldNames[field] : nullptr;
 }
 
-int CRLMessageDescriptor::findField(const char* fieldName) const
+int V2VMessageDescriptor::findField(const char* fieldName) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     int base = basedesc ? basedesc->getFieldCount() : 0;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "mTimestamp") == 0)
+    if (fieldName[0] == 't' && strcmp(fieldName, "timestamp") == 0)
         return base + 0;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "mRevokedCertificates") == 0)
+    if (fieldName[0] == 'c' && strcmp(fieldName, "certificate") == 0)
         return base + 1;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "mSignature") == 0)
+    if (fieldName[0] == 's' && strcmp(fieldName, "signature") == 0)
         return base + 2;
-    if (fieldName[0] == 'm' && strcmp(fieldName, "mSignerCertificate") == 0)
+    if (fieldName[0] == 'p' && strcmp(fieldName, "payload") == 0)
         return base + 3;
     return basedesc ? basedesc->findField(fieldName) : -1;
 }
 
-const char* CRLMessageDescriptor::getFieldTypeString(int field) const
+const char* V2VMessageDescriptor::getFieldTypeString(int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1132,14 +865,14 @@ const char* CRLMessageDescriptor::getFieldTypeString(int field) const
     }
     static const char* fieldTypeStrings[] = {
         "simtime_t",
-        "vanetza::security::HashedId8",
-        "vanetza::security::EcdsaSignature",
         "vanetza::security::Certificate",
+        "vanetza::security::EcdsaSignature",
+        "string",
     };
     return (field >= 0 && field < 4) ? fieldTypeStrings[field] : nullptr;
 }
 
-const char** CRLMessageDescriptor::getFieldPropertyNames(int field) const
+const char** V2VMessageDescriptor::getFieldPropertyNames(int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1153,7 +886,7 @@ const char** CRLMessageDescriptor::getFieldPropertyNames(int field) const
     }
 }
 
-const char* CRLMessageDescriptor::getFieldProperty(int field, const char* propertyname) const
+const char* V2VMessageDescriptor::getFieldProperty(int field, const char* propertyname) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1167,7 +900,7 @@ const char* CRLMessageDescriptor::getFieldProperty(int field, const char* proper
     }
 }
 
-int CRLMessageDescriptor::getFieldArraySize(void* object, int field) const
+int V2VMessageDescriptor::getFieldArraySize(void* object, int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1175,17 +908,15 @@ int CRLMessageDescriptor::getFieldArraySize(void* object, int field) const
             return basedesc->getFieldArraySize(object, field);
         field -= basedesc->getFieldCount();
     }
-    CRLMessage* pp = (CRLMessage*)object;
+    V2VMessage* pp = (V2VMessage*)object;
     (void)pp;
     switch (field) {
-        case 1:
-            return pp->getMRevokedCertificatesArraySize();
         default:
             return 0;
     }
 }
 
-const char* CRLMessageDescriptor::getFieldDynamicTypeString(void* object, int field, int i) const
+const char* V2VMessageDescriptor::getFieldDynamicTypeString(void* object, int field, int i) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1193,7 +924,7 @@ const char* CRLMessageDescriptor::getFieldDynamicTypeString(void* object, int fi
             return basedesc->getFieldDynamicTypeString(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    CRLMessage* pp = (CRLMessage*)object;
+    V2VMessage* pp = (V2VMessage*)object;
     (void)pp;
     switch (field) {
         default:
@@ -1201,7 +932,7 @@ const char* CRLMessageDescriptor::getFieldDynamicTypeString(void* object, int fi
     }
 }
 
-std::string CRLMessageDescriptor::getFieldValueAsString(void* object, int field, int i) const
+std::string V2VMessageDescriptor::getFieldValueAsString(void* object, int field, int i) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1209,32 +940,29 @@ std::string CRLMessageDescriptor::getFieldValueAsString(void* object, int field,
             return basedesc->getFieldValueAsString(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    CRLMessage* pp = (CRLMessage*)object;
+    V2VMessage* pp = (V2VMessage*)object;
     (void)pp;
     switch (field) {
         case 0:
-            return simtime2string(pp->getMTimestamp());
+            return simtime2string(pp->getTimestamp());
         case 1: {
             std::stringstream out;
-            out << pp->getMRevokedCertificates(i);
+            out << pp->getCertificate();
             return out.str();
         }
         case 2: {
             std::stringstream out;
-            out << pp->getMSignature();
+            out << pp->getSignature();
             return out.str();
         }
-        case 3: {
-            std::stringstream out;
-            out << pp->getMSignerCertificate();
-            return out.str();
-        }
+        case 3:
+            return oppstring2string(pp->getPayload());
         default:
             return "";
     }
 }
 
-bool CRLMessageDescriptor::setFieldValueAsString(void* object, int field, int i, const char* value) const
+bool V2VMessageDescriptor::setFieldValueAsString(void* object, int field, int i, const char* value) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1242,18 +970,21 @@ bool CRLMessageDescriptor::setFieldValueAsString(void* object, int field, int i,
             return basedesc->setFieldValueAsString(object, field, i, value);
         field -= basedesc->getFieldCount();
     }
-    CRLMessage* pp = (CRLMessage*)object;
+    V2VMessage* pp = (V2VMessage*)object;
     (void)pp;
     switch (field) {
         case 0:
-            pp->setMTimestamp(string2simtime(value));
+            pp->setTimestamp(string2simtime(value));
+            return true;
+        case 3:
+            pp->setPayload((value));
             return true;
         default:
             return false;
     }
 }
 
-const char* CRLMessageDescriptor::getFieldStructName(int field) const
+const char* V2VMessageDescriptor::getFieldStructName(int field) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1263,17 +994,15 @@ const char* CRLMessageDescriptor::getFieldStructName(int field) const
     }
     switch (field) {
         case 1:
-            return omnetpp::opp_typename(typeid(vanetza::security::HashedId8));
+            return omnetpp::opp_typename(typeid(vanetza::security::Certificate));
         case 2:
             return omnetpp::opp_typename(typeid(vanetza::security::EcdsaSignature));
-        case 3:
-            return omnetpp::opp_typename(typeid(vanetza::security::Certificate));
         default:
             return nullptr;
     };
 }
 
-void* CRLMessageDescriptor::getFieldStructValuePointer(void* object, int field, int i) const
+void* V2VMessageDescriptor::getFieldStructValuePointer(void* object, int field, int i) const
 {
     omnetpp::cClassDescriptor* basedesc = getBaseClassDescriptor();
     if (basedesc) {
@@ -1281,17 +1010,14 @@ void* CRLMessageDescriptor::getFieldStructValuePointer(void* object, int field, 
             return basedesc->getFieldStructValuePointer(object, field, i);
         field -= basedesc->getFieldCount();
     }
-    CRLMessage* pp = (CRLMessage*)object;
+    V2VMessage* pp = (V2VMessage*)object;
     (void)pp;
     switch (field) {
         case 1:
-            return (void*)(&pp->getMRevokedCertificates(i));
+            return (void*)(&pp->getCertificate());
             break;
         case 2:
-            return (void*)(&pp->getMSignature());
-            break;
-        case 3:
-            return (void*)(&pp->getMSignerCertificate());
+            return (void*)(&pp->getSignature());
             break;
         default:
             return nullptr;

@@ -1,8 +1,11 @@
-// VehicleCRLService.cc
 #include "VehicleCRLService.h"
 
+#include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
+#include "CertificateManager.h"
 #include "RevocationAuthorityService.h"
+#include "V2VMessageHandler.h"
+#include "V2VMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
@@ -41,193 +44,148 @@ void VehicleCRLService::initialize()
 {
     ItsG5Service::initialize();
 
-    mBackend.reset(new vanetza::security::BackendCryptoPP());
+    // Create the BackendCryptoPP instance
+    mBackend = std::unique_ptr<vanetza::security::BackendCryptoPP>(new vanetza::security::BackendCryptoPP());
     std::cout << "Backend created: " << (mBackend ? "Yes" : "No") << std::endl;
 
-    mLocalCRL.clear();
+    // Generate the key pair and certificate once during initialization
+    mKeyPair = mBackend->generate_key_pair();
+    mCertificate = GenerateRoot(mKeyPair);
+
+    mCertificateManager = std::unique_ptr<CertificateManager>(new CertificateManager());
+    mCRLHandler = std::unique_ptr<CRLMessageHandler>(new CRLMessageHandler(mBackend.get(), mKeyPair, mCertificate));
+    mV2VHandler = std::unique_ptr<V2VMessageHandler>(new V2VMessageHandler(mBackend.get(), mKeyPair, mCertificate));
+
     std::cout << "VehicleCRLService initialized." << std::endl;
+
+    // Schedule the first trigger event
+    scheduleAt(simTime() + 1.0, new cMessage("triggerEvent"));
 }
+
 
 void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
 
-    // std::cout << "Received a message in VehicleCRLService on port " << ind.destination_port << " from channel " << net.channel << std::endl;
-
     if (packet) {
-        // std::cout << "Packet name: " << packet->getName() << ", class: " << packet->getClassName() << std::endl;
-
-        // Directly cast the received packet to CRLMessage
+        // Check if the message is a CRL message
         CRLMessage* crlMessage = dynamic_cast<CRLMessage*>(packet);
         if (crlMessage) {
-            std::cout << "Received a CRLMessage. Processing..." << crlMessage->getName() << std::endl;
-
-            // Print the contents of the CRLMessage
-            // std::cout << "Timestamp: " << crlMessage->getMTimestamp() << std::endl;
-
-            // Print revoked certificates
-            // unsigned int numRevokedCerts = crlMessage->getMRevokedCertificatesArraySize();
-            // std::cout << "Number of revoked certificates: " << numRevokedCerts << std::endl;
-            // for (unsigned int i = 0; i < numRevokedCerts; ++i) {
-            //     vanetza::security::HashedId8& revokedCert = crlMessage->getMRevokedCertificates(i);
-            // }
-
-            // Call processing function
+            std::cout << "Received a CRLMessage. Processing..." << std::endl;
             handleCRLMessage(crlMessage);
-
             delete crlMessage;
-        } else {
-            std::cout << "Received packet is not a CRLMessage. Ignoring." << std::endl;
+            return;
         }
+
+        // Check if the message is a V2V message
+        V2VMessage* v2vMessage = dynamic_cast<V2VMessage*>(packet);
+        if (v2vMessage) {
+            std::cout << "Received a V2VMessage. Processing..." << std::endl;
+
+            // Extract the certificate from the V2V message
+            const vanetza::security::Certificate& cert = v2vMessage->getCertificate();
+
+            // Check if the certificate is valid
+            if (!mCertificateManager->verifyCertificate(cert)) {
+                std::cout << "Invalid certificate. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
+
+            // Check if the certificate is revoked
+            vanetza::security::HashedId8 certHash = calculate_hash(cert);
+            if (mCertificateManager->isRevoked(certHash)) {
+                std::cout << "Certificate is revoked. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
+
+            // Verify the signature of the V2V message
+            if (!mV2VHandler->verifyV2VSignature(v2vMessage)) {
+                std::cout << "Invalid signature. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
+
+            // Process the valid and non-revoked V2V message
+            processMessage(v2vMessage);
+            return;
+        }
+
+        std::cout << "Received an unknown type of packet. Ignoring." << std::endl;
     } else {
         std::cout << "Received packet is nullptr. Ignoring." << std::endl;
     }
 }
 
+void VehicleCRLService::discardMessage(cPacket* packet)
+{
+    delete packet;  // Simple way to discard the message
+    std::cout << "Message discarded." << std::endl;
+}
 
 void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
 {
-    // Extract public key from the signer's certificate
-    const vanetza::security::Certificate& signerCertificate = crlMessage->getMSignerCertificate();
-    std::cout << "Got signer cert!" << std::endl;
-    vanetza::security::ecdsa256::PublicKey publicKey = extractPublicKey(signerCertificate);
-    std::cout << "Got public key!" << std::endl;
-
-    // Verify the CRL signature
-    if (!verifyCRLSignature(crlMessage, publicKey)) {
+    if (!mCRLHandler->verifyCRLSignature(crlMessage)) {
         std::cout << "CRL message signature verification failed." << std::endl;
         return;
     }
 
-    // Update the local CRL with the revoked certificates
-    unsigned int numRevokedCertificates = crlMessage->getMRevokedCertificatesArraySize();
     std::vector<vanetza::security::HashedId8> revokedCertificates;
-    for (unsigned int i = 0; i < numRevokedCertificates; ++i) {
+    for (unsigned int i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
         revokedCertificates.push_back(crlMessage->getMRevokedCertificates(i));
     }
-    updateLocalCRL(revokedCertificates);
+    mCertificateManager->updateLocalCRL(revokedCertificates);
 
     std::cout << "CRL message processed successfully." << std::endl;
 }
 
-bool VehicleCRLService::verifyCRLSignature(const CRLMessage* crlMessage, const vanetza::security::ecdsa256::PublicKey& publicKey)
+void VehicleCRLService::processMessage(V2VMessage* v2vMessage)
 {
-    std::cout << "Started signature verification..." << std::endl;
-
-    // Collect data to verify
-    vanetza::ByteBuffer dataToVerify;
-
-    // Add the timestamp
-    uint64_t timestamp = static_cast<uint64_t>(crlMessage->getMTimestamp().dbl() * 1e9);  // Convert to nanoseconds
-    dataToVerify.insert(dataToVerify.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
-    // std::cout << "Timestamp added: " << timestamp << std::endl;
-
-    // Add revoked certificates hashes
-    // std::cout << "Number of revoked certificates: " << crlMessage->getMRevokedCertificatesArraySize() << std::endl;
-    for (size_t i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
-        auto& hash = crlMessage->getMRevokedCertificates(i);
-        dataToVerify.insert(dataToVerify.end(), hash.data(), hash.data() + hash.size());
-
-        // std::cout << "Revoked certificate hash added: ";
-        for (auto byte : hash) {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
-        }
-        std::cout << std::endl;
-    }
-
-    // Add the serialized signer certificate
-    vanetza::ByteBuffer serializedCert = vanetza::security::convert_for_signing(crlMessage->getMSignerCertificate());
-    dataToVerify.insert(dataToVerify.end(), serializedCert.begin(), serializedCert.end());
-    // std::cout << "Serialized signer certificate added. Size: " << serializedCert.size() << std::endl;
-
-    // Retrieve the signature from the message
-    const vanetza::security::EcdsaSignature& signature = crlMessage->getMSignature();
-    // std::cout << "Signature retrieved. S size: " << signature.s.size() << std::endl;
-
-    // Print the signature values
-    // std::cout << "Signature S: ";
-    // for (auto byte : signature.s) {
-    //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
-    // }
-    // std::cout << std::endl;
-
-    bool isValid = false;
-
-    try {
-        // std::cout << "Calling verify_data with publicKey, dataToVerify, and signature..." << std::endl;
-        isValid = mBackend->verify_data(publicKey, dataToVerify, signature);
-        std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
-    } catch (const std::runtime_error& e) {
-        std::cout << "Error during signature verification: " << e.what() << std::endl;
-    }
-
-    return isValid;
+    // Implement V2V message processing logic
+    std::cout << "Processing V2V message..., payload: " << v2vMessage->getPayload() << std::endl;
+    // Process the message as needed
 }
 
-
-void VehicleCRLService::updateLocalCRL(const std::vector<vanetza::security::HashedId8>& revokedCertificates)
+void VehicleCRLService::trigger()
 {
-    mLocalCRL.insert(mLocalCRL.end(), revokedCertificates.begin(), revokedCertificates.end());
-    std::sort(mLocalCRL.begin(), mLocalCRL.end());
-    mLocalCRL.erase(std::unique(mLocalCRL.begin(), mLocalCRL.end()), mLocalCRL.end());
+    Enter_Method("trigger");
+    using namespace vanetza;
 
-    std::cout << "Local CRL updated. Current size: " << mLocalCRL.size() << std::endl;
-}
+    static const vanetza::ItsAid v2v_its_aid = 623;  // Different AID for V2V messages
+    auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+    auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-bool VehicleCRLService::isRevoked(const vanetza::security::HashedId8& certificateHash)
-{
-    return std::binary_search(mLocalCRL.begin(), mLocalCRL.end(), certificateHash);
-}
+    for (auto channel : mco.allChannels(v2v_its_aid)) {
+        auto network = networks.select(channel);
+        if (network) {
+            btp::DataRequestB req;
+            req.destination_port = host_cast(getPortNumber(channel));
+            req.gn.transport_type = geonet::TransportType::SHB;
+            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+            req.gn.its_aid = v2v_its_aid;
 
-vanetza::security::ecdsa256::PublicKey VehicleCRLService::extractPublicKey(const vanetza::security::Certificate& certificate)
-{
-    // std::cout << "Started extraction..." << std::endl;
-    for (const auto& attribute : certificate.subject_attributes) {
-        // std::cout << "Inspecting attribute..." << std::endl;
-
-        if (auto verificationKey = boost::get<vanetza::security::VerificationKey>(&attribute)) {
-            // std::cout << "Verification key present!" << std::endl;
-
-            if (auto key = boost::get<vanetza::security::ecdsa_nistp256_with_sha256>(&verificationKey->key)) {
-                // std::cout << "ECDSA NIST P256 key found!" << std::endl;
-
-                const auto& publicKeyData = key->public_key;
-                vanetza::security::ecdsa256::PublicKey publicKey;
-
-                if (auto uncompressedPoint = boost::get<vanetza::security::Uncompressed>(&publicKeyData)) {
-                    // std::cout << "Uncompressed point found!" << std::endl;
-
-                    std::copy(uncompressedPoint->x.begin(), uncompressedPoint->x.end(), publicKey.x.begin());
-                    std::copy(uncompressedPoint->y.begin(), uncompressedPoint->y.end(), publicKey.y.begin());
-
-                    // Print the public key
-                    // std::cout << "Public key (x): ";
-                    // for (auto byte : publicKey.x) {
-                    //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
-                    // }
-                    // std::cout << std::endl;
-
-                    // std::cout << "Public key (y): ";
-                    // for (auto byte : publicKey.y) {
-                    //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
-                    // }
-                    // std::cout << std::endl;
-
-                    return publicKey;
-                } else {
-                    std::cout << "Public key is not uncompressed." << std::endl;
-                }
-            } else {
-                std::cout << "Verification key is not ECDSA NIST P256." << std::endl;
-            }
+            V2VMessage* v2vMessage = mV2VHandler->createV2VMessage();
+            request(req, v2vMessage, network.get());
+            std::cout << "V2V message sent." << std::endl;
         } else {
-            std::cout << "Attribute is not a verification key." << std::endl;
+            std::cerr << "No network interface available for channel " << channel << std::endl;
         }
     }
 
-    // std::cout << "Public key not found in the certificate." << std::endl;
-    return vanetza::security::ecdsa256::PublicKey();
+    // Schedule the next trigger
+    scheduleAt(simTime() + 1.0, new cMessage("triggerEvent"));
 }
 
+void VehicleCRLService::handleMessage(cMessage* msg)
+{
+    if (strcmp(msg->getName(), "triggerEvent") == 0) {
+        trigger();
+        delete msg;
+    } else {
+        ItsG5Service::handleMessage(msg);
+    }
+}
 
 }  // namespace artery

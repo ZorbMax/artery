@@ -1,39 +1,42 @@
-#ifndef VEHICLE_CRL_SERVICE_H_
-#define VEHICLE_CRL_SERVICE_H_
+#ifndef VEHICLE_CRLSERVICE_H
+#define VEHICLE_CRLSERVICE_H
 
+#include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
+#include "CertificateManager.h"
 #include "ItsG5Service.h"
+#include "V2VMessageHandler.h"
+#include "vanetza/security/backend.hpp"
+#include "vanetza/security/ecdsa256.hpp"
 
 #include <omnetpp.h>
-#include <vanetza/btp/data_indication.hpp>
-#include <vanetza/security/certificate.hpp>
-#include <vanetza/security/ecdsa256.hpp>
-#include <vanetza/security/public_key.hpp>
 
 #include <memory>
-#include <vector>
 
 namespace artery
 {
 
 class VehicleCRLService : public ItsG5Service
 {
-public:
-    void initialize() override;
-    void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net);
-
-    bool isRevoked(const vanetza::security::HashedId8& certificateHash);
+protected:
+    virtual void initialize() override;
+    virtual void handleMessage(omnetpp::cMessage* msg) override;
+    virtual void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net) override;
 
 private:
-    std::unique_ptr<vanetza::security::Backend> mBackend;
-    std::vector<vanetza::security::HashedId8> mLocalCRL;
-
     void handleCRLMessage(CRLMessage* crlMessage);
-    bool verifyCRLSignature(const CRLMessage* crlMessage, const vanetza::security::ecdsa256::PublicKey& publicKey);
-    void updateLocalCRL(const std::vector<vanetza::security::HashedId8>& revokedCertificates);
-    vanetza::security::ecdsa256::PublicKey extractPublicKey(const vanetza::security::Certificate& certificate);
+    void processMessage(V2VMessage* v2vMessage);
+    void discardMessage(omnetpp::cPacket* packet);
+    void trigger() override;
+
+    std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
+    vanetza::security::ecdsa256::KeyPair mKeyPair;
+    vanetza::security::Certificate mCertificate;
+    std::unique_ptr<CertificateManager> mCertificateManager;
+    std::unique_ptr<CRLMessageHandler> mCRLHandler;
+    std::unique_ptr<V2VMessageHandler> mV2VHandler;
 };
 
 }  // namespace artery
 
-#endif /* VEHICLE_CRL_SERVICE_H_ */
+#endif  // VEHICLE_CRLSERVICE_H

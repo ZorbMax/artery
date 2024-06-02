@@ -1,13 +1,13 @@
 // CRLMessage.msg
 
 cplusplus {{
+#include <vanetza/security/basic_elements.hpp>
+#include <vanetza/security/certificate.hpp>
+#include <vanetza/security/signature.hpp>
 #include <vector>
-#include "vanetza/security/HashedId8.h"
-#include "vanetza/security/EcdsaSignature.h"
-#include "vanetza/security/Certificate.h"
 }}
 
-// Declare external classes with the @existingClass property
+// Declare external classes with @existingClass
 class vanetza::security::HashedId8
 {
     @existingClass;
@@ -26,7 +26,7 @@ class vanetza::security::Certificate
 packet CRLMessage
 {
     simtime_t mTimestamp;
-    vanetza::security::HashedId8 mRevokedCertificates[]; // Array of HashedId8
+    vanetza::security::HashedId8 mRevokedCertificates[];
     vanetza::security::EcdsaSignature mSignature;
     vanetza::security::Certificate mSignerCertificate;
 }
