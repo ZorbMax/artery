@@ -16,8 +16,21 @@
 #ifndef EXAMPLESERVICE_H_
 #define EXAMPLESERVICE_H_
 
+#include "PseudonymMessageHandler.h"
+#include "CertificateManager.h"
+
 #include "artery/application/ItsG5Service.h"
 #include "artery/application/NetworkInterface.h"
+#include <vanetza/security/backend.hpp>
+#include "vanetza/security/ecdsa256.hpp"
+
+#include <omnetpp.h>
+#include <memory>
+
+#include "CRLMessageHandler.h"
+#include "CRLMessage_m.h"
+#include "CertificateManager.h"
+#include "V2VMessageHandler.h"
 
 namespace artery
 {
@@ -29,7 +42,6 @@ class ExampleService : public ItsG5Service
         ~ExampleService();
 
         void indicate(const vanetza::btp::DataIndication&, omnetpp::cPacket*, const NetworkInterface&) override;
-        //void indicate(const vanetza::btp::DataIndication&, std::unique_ptr<vanetza::UpPacket>) override;
         void trigger() override;
         void receiveSignal(omnetpp::cComponent*, omnetpp::simsignal_t, omnetpp::cObject*, omnetpp::cObject*) override;
 
@@ -40,6 +52,24 @@ class ExampleService : public ItsG5Service
 
     private:
         omnetpp::cMessage* m_self_msg;
+        std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
+        vanetza::security::ecdsa256::KeyPair mRootKeyPair;
+        vanetza::security::ecdsa256::KeyPair mKeyPair;
+        vanetza::security::Certificate mCertificate;
+        std::string mId;
+        std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
+        std::vector<vanetza::security::Certificate> mCertVector; // Store certificates of pseudonyms
+        bool boolPseudo;
+        bool boolEnroll;
+
+        void handleCRLMessage(CRLMessage* crlMessage);
+        void processMessage(V2VMessage* v2vMessage);
+        void discardMessage(omnetpp::cPacket* packet);
+
+        std::unique_ptr<CertificateManager> mCertificateManager;
+        std::unique_ptr<CRLMessageHandler> mCRLHandler;
+        std::unique_ptr<V2VMessageHandler> mV2VHandler;
+        
 };
 
 } // namespace artery

@@ -17,15 +17,62 @@
 #include "artery/traci/VehicleController.h"
 #include "certify/generate-key.hpp"
 #include "tools/PublicKey.h"
+#include "certify/generate-root.hpp"
+#include "V2VMessage_m.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/binary_from_base64.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
 #include <omnetpp/cpacket.h>
-#include <vanetza/btp/data_request.hpp>
-#include <vanetza/btp/ports.hpp>
 #include <vanetza/dcc/profile.hpp>
 #include <vanetza/geonet/interface.hpp>
+#include <vanetza/common/byte_buffer.hpp>
+#include <vanetza/security/ecdsa256.hpp>
+#include <vanetza/btp/data_indication.hpp>
+#include <vanetza/btp/data_request.hpp>
+#include <vanetza/btp/ports.hpp>
+#include <vanetza/common/byte_buffer.hpp>
+#include <vanetza/geonet/data_confirm.hpp>
+#include <vanetza/geonet/router.hpp>
+#include <vanetza/security/backend.hpp>
+#include <vanetza/security/basic_elements.hpp>
+#include <vanetza/security/certificate.hpp>
+#include <vanetza/security/ecdsa256.hpp>
+#include <vanetza/security/public_key.hpp>
+#include <vanetza/security/subject_attribute.hpp>
+#include <vanetza/security/subject_info.hpp>
+
+#include "CRLMessageHandler.h"
+#include "CRLMessage_m.h"
+#include "CertificateManager.h"
+#include "RevocationAuthorityService.h"
+#include "V2VMessageHandler.h"
+#include "V2VMessage_m.h"
+#include "artery/networking/GeoNetPacket.h"
+#include "certify/generate-key.hpp"
+#include "certify/generate-root.hpp"
+
+#include <arpa/inet.h>
+#include <omnetpp.h>
+#include <vanetza/btp/data_indication.hpp>
+#include <vanetza/btp/data_request.hpp>
+#include <vanetza/btp/ports.hpp>
+#include <vanetza/common/byte_buffer.hpp>
+#include <vanetza/geonet/data_confirm.hpp>
+#include <vanetza/geonet/router.hpp>
+#include <vanetza/security/backend.hpp>
+#include <vanetza/security/basic_elements.hpp>
+#include <vanetza/security/certificate.hpp>
+#include <vanetza/security/ecdsa256.hpp>
+#include <vanetza/security/public_key.hpp>
+#include <vanetza/security/subject_attribute.hpp>
+#include <vanetza/security/subject_info.hpp>
+
+#include <iomanip>
+#include <iostream>
+#include <memory>
+#include <vector>
+
 
 #include <string>
 
@@ -33,10 +80,6 @@ using namespace omnetpp;
 using namespace vanetza;
 using namespace CryptoPP;
 using namespace boost::archive::iterators;
-
-std::vector<int> enrolledVectorr;
-std::vector<vanetza::security::Certificate> certVector;
-std::vector<vanetza::security::ecdsa256::PrivateKey> privateKeyVector;
 
 namespace artery
 {
@@ -57,51 +100,121 @@ ExampleService::~ExampleService()
 void ExampleService::indicate(const btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
-    if (packet->getByteLength() == 42 || true) {
-        auto& vehicle = getFacilities().get_const<traci::VehicleController>();
-        std::string id = vehicle.getVehicleId();
-        size_t dot = id.find(".");
-        if (dot != std::string::npos) {
-            // Cut the string after the delimiter
-            id = id.substr(dot + 1);
+
+    if (packet) {
+        // Check if the message is a CRL message
+        CRLMessage* crlMessage = dynamic_cast<CRLMessage*>(packet);
+        if (crlMessage) {
+            std::cout << "Received a CRLMessage. Processing..." << std::endl;
+            handleCRLMessage(crlMessage);
+            delete crlMessage;
+            return;
         }
-        EV_INFO << "packet indication on channel " << net.channel << "\n";
-        std::string content = packet->getName();
-        std::string tag;
-        std::string data;
-        // std::cout << "Vehicle received " << id  << " : " << content << std::endl;
-        // std::cout << "enroll content : "<< content << std::endl;
-        size_t pos = content.find("|");
-        if (pos != std::string::npos) {
-            // std::cout << "enroll received "<< id << std::endl;
-            // Cut the string after the delimiter
-            tag = content.substr(0, pos);
-            data = content.substr(pos + 1);
-            // std::cout << "tag = " << tag << "\n";
-            pos = tag.find("-");
-            std::string target_id = "-1";
-            std::string request;
-            // Check if the delimiter was found
-            if (pos != std::string::npos) {
-                // Cut the string after the delimiter
-                request = tag.substr(pos + 1);
-                target_id = tag.substr(0, pos);
-                // Output the cut string
-                // std::cout << "Cut String car: " << request << "-" << target_id <<std::endl;
-            } else {
-                // std::cout << "Delimiter not found in the string." << std::endl;
+
+        // Check if the message is a V2V message
+        V2VMessage* v2vMessage = dynamic_cast<V2VMessage*>(packet);
+        if (v2vMessage) {
+            std::cout << "Received a V2VMessage. Processing..." << std::endl;
+
+            // Extract the certificate from the V2V message
+            const vanetza::security::Certificate& cert = v2vMessage->getCertificate();
+
+            // Check if the certificate is valid
+            if (!mCertificateManager->verifyCertificate(cert)) {
+                std::cout << "Invalid certificate. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
             }
-            // std::cout << "Check" << id << "=" << target_id << "\n";
-            if (id == target_id && request == "enrollrespond") {
-                // std::cout << "enroll processing"<< std::endl;
-                typedef transform_width<binary_from_base64<std::string::const_iterator>, 8, 6> base64_decoder;
-                std::string decoded_data(base64_decoder(data.begin()), base64_decoder(data.end()));
-                std::cout << "Vehicle enrolled " << id << std::endl;
-                std::istringstream iss(decoded_data);
-                vanetza::InputArchive ar(iss);
-                vanetza::security::Certificate cert;
-                deserialize(ar, cert);
-                certVector.push_back(cert);
+
+            // Check if the certificate is revoked
+            vanetza::security::HashedId8 certHash = calculate_hash(cert);
+            if (mCertificateManager->isRevoked(certHash)) {
+                std::cout << "Certificate is revoked. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
+
+            // Verify the signature of the V2V message
+            if (!mV2VHandler->verifyV2VSignature(v2vMessage)) {
+                std::cout << "Invalid signature. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
+
+            // Process the valid and non-revoked V2V message
+            processMessage(v2vMessage);
+            return;
+        }
+
+		// Check if the message is a Pseudonym request message
+        PseudonymMessage* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet);
+        if (boolPseudo && pseudonymMessage && std::strstr(pseudonymMessage->getPayload(), "This is a pseudonym response") != nullptr) {
+			// TODO verify if cert is the one from pseudonym provider
+            //if (!mPseudonymHandler->verifyPseudonymSignature(pseudonymMessage)) {
+        	//    std::cout << "Pseudonym message signature verification failed." << std::endl;
+        	//    return;
+    		//}
+            std::string payload = pseudonymMessage->getPayload();
+            size_t dot = payload.find(".");
+            std::string id;
+            if (dot != std::string::npos) {
+                // Cut the string after the delimiter
+                id = payload.substr(dot + 1);
+            }
+            if(id == mId){
+                std::cout << "pseudo processing" << mId << std::endl;
+                vanetza::security::Certificate cert = pseudonymMessage->getPseudonym();
+                mCRLHandler = std::unique_ptr<CRLMessageHandler>(new CRLMessageHandler(mBackend.get(), mKeyPair, cert));
+                mV2VHandler = std::unique_ptr<V2VMessageHandler>(new V2VMessageHandler(mBackend.get(), mKeyPair, cert));
+                mCertVector.push_back(cert);
+                boolPseudo = false;
+            }
+        }else{
+            auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+            std::string id = vehicle.getVehicleId();
+            size_t dot = id.find(".");
+            if (dot != std::string::npos) {
+                // Cut the string after the delimiter
+                id = id.substr(dot + 1);
+            }
+            EV_INFO << "packet indication on channel " << net.channel << "\n";
+            std::string content = packet->getName();
+            std::string tag;
+            std::string data;
+            // std::cout << "Vehicle received " << id  << " : " << content << std::endl;
+            // std::cout << "enroll content : "<< content << std::endl;
+            size_t pos = content.find("|");
+            if (pos != std::string::npos) {
+                // std::cout << "enroll received "<< id << std::endl;
+                // Cut the string after the delimiter
+                tag = content.substr(0, pos);
+                data = content.substr(pos + 1);
+                // std::cout << "tag = " << tag << "\n";
+                pos = tag.find("-");
+                std::string target_id = "-1";
+                std::string request;
+                // Check if the delimiter was found
+                if (pos != std::string::npos) {
+                    // Cut the string after the delimiter
+                    request = tag.substr(pos + 1);
+                    target_id = tag.substr(0, pos);
+                    // Output the cut string
+                } else {
+                    // std::cout << "Delimiter not found in the string." << std::endl;
+                }
+                // std::cout << "Check" << id << "=" << target_id << "\n";
+                if (id == target_id && request == "enrollrespond") {
+                    // std::cout << "enroll processing"<< std::endl;
+                    typedef transform_width<binary_from_base64<std::string::const_iterator>, 8, 6> base64_decoder;
+                    std::string decoded_data(base64_decoder(data.begin()), base64_decoder(data.end()));
+                    std::cout << "Vehicle enrolled " << id << std::endl;
+                    std::istringstream iss(decoded_data);
+                    vanetza::InputArchive ar(iss);
+                    vanetza::security::Certificate cert;
+                    deserialize(ar, cert);
+                    mCertificate = cert;
+                    mPseudonymHandler = std::unique_ptr<PseudonymMessageHandler>(new PseudonymMessageHandler(mBackend.get(), mRootKeyPair, mCertificate));
+                }
             }
         }
     }
@@ -112,8 +225,21 @@ void ExampleService::initialize()
 {
     ItsG5Service::initialize();
 
+    mBackend = std::unique_ptr<vanetza::security::BackendCryptoPP>(new vanetza::security::BackendCryptoPP());
+    mCertificateManager = std::unique_ptr<CertificateManager>(new CertificateManager());
+
+    boolPseudo = true;
+    boolEnroll = true;
+
     auto& vehicle = getFacilities().get_const<traci::VehicleController>();
-    const std::string id = vehicle.getVehicleId();
+    mId = vehicle.getVehicleId();
+    size_t dot = mId.find(".");
+    if (dot != std::string::npos) {
+        // Cut the string after the delimiter
+        mId = mId.substr(dot + 1);
+    }
+
+    std::cout << "VehicleService initialized: " << mId << std::endl;
 }
 
 void ExampleService::finish()
@@ -132,6 +258,35 @@ void ExampleService::handleMessage(cMessage* msg)
     }
 }
 
+void ExampleService::handleCRLMessage(CRLMessage* crlMessage)
+{
+    if (!mCRLHandler->verifyCRLSignature(crlMessage)) {
+        std::cout << "CRL message signature verification failed." << std::endl;
+        return;
+    }
+
+    std::vector<vanetza::security::HashedId8> revokedCertificates;
+    for (unsigned int i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
+        revokedCertificates.push_back(crlMessage->getMRevokedCertificates(i));
+    }
+    mCertificateManager->updateLocalCRL(revokedCertificates);
+
+    std::cout << "CRL message processed successfully." << std::endl;
+}
+
+void ExampleService::discardMessage(cPacket* packet)
+{
+    delete packet;  // Simple way to discard the message
+    std::cout << "Message discarded." << std::endl;
+}
+
+void ExampleService::processMessage(V2VMessage* v2vMessage)
+{
+    // Implement V2V message processing logic
+    std::cout << "Processing V2V message..., payload: " << v2vMessage->getPayload() << std::endl;
+    // Process the message as needed
+}
+
 void ExampleService::trigger()
 {
     Enter_Method("trigger");
@@ -142,17 +297,8 @@ void ExampleService::trigger()
     auto& mco = getFacilities().get_const<MultiChannelPolicy>();
     auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-    auto& vehicle = getFacilities().get_const<traci::VehicleController>();
-    std::string id = vehicle.getVehicleId();
-
-    size_t dot = id.find(".");
-    if (dot != std::string::npos) {
-        // Cut the string after the delimiter
-        id = id.substr(dot + 1);
-    }
-
-    std::vector<int>::iterator it;
-    it = std::find(enrolledVectorr.begin(), enrolledVectorr.end(), std::stoi(id));
+    //std::vector<int>::iterator it;
+    //it = std::find(enrolledVectorr.begin(), enrolledVectorr.end(), std::stoi(mId));
 
     for (auto channel : mco.allChannels(example_its_aid)) {
         auto network = networks.select(channel);
@@ -165,16 +311,13 @@ void ExampleService::trigger()
             req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
             req.gn.its_aid = example_its_aid;
 
-            std::cout << "Sending message on channel " << channel << " to port " << req.destination_port << std::endl;
-
-            if (it == enrolledVectorr.end()) {
-                ecdsa256::KeyPair key_pair = GenerateKey();
-                const vanetza::security::ecdsa256::PublicKey public_key = key_pair.public_key;
-                privateKeyVector.push_back(key_pair.private_key);
+            if (boolEnroll) {
+                mRootKeyPair = GenerateKey();
+                const vanetza::security::ecdsa256::PublicKey public_key = mRootKeyPair.public_key;
                 uint8_t* buffer = static_cast<uint8_t*>(malloc(dataSize));
                 serializePublicKey(public_key, buffer);
 
-                std::string tag = id + "-enrollrequest";
+                std::string tag = mId + "-enrollrequest";
                 std::string content = createPacket(tag, buffer);
 
                 const char* content_cstr = content.c_str();
@@ -183,26 +326,34 @@ void ExampleService::trigger()
 
                 // send packet on specific network interface
                 request(req, packet, network.get());
-                enrolledVectorr.push_back(std::stoi(id));
-                // std::cout << "enroll request sent " << id <<std::endl;
-            } else {
-                ecdsa256::KeyPair key_pair = GenerateKey();
-                const vanetza::security::ecdsa256::PublicKey public_key = key_pair.public_key;
-                privateKeyVector.push_back(key_pair.private_key);
-                uint8_t* buffer = static_cast<uint8_t*>(malloc(dataSize));
-                serializePublicKey(public_key, buffer);
-
-                std::string tag = id + "-pseudorequest";
-                std::string content = createPacket(tag, buffer);
-
-                const char* content_cstr = content.c_str();
-                cPacket* packet = new cPacket(content_cstr);
-                packet->setByteLength(42);
+                boolEnroll = false;
+            } else if (boolPseudo){
+                mKeyPair = GenerateKey();
+                vanetza::security::ecdsa256::PublicKey public_key = mKeyPair.public_key;
+                PseudonymMessage* pseudonymMessage = mPseudonymHandler->createPseudonymMessage(public_key, mId);
 
                 // send packet on specific network interface
-                request(req, packet, network.get());
-                enrolledVectorr.push_back(std::stoi(id));
-                // std::cout << "enroll request sent " << id <<std::endl;
+                request(req, pseudonymMessage, network.get());
+            }else{
+                if(!mCertVector.empty()){
+                    auto time_now = vanetza::Clock::at(boost::posix_time::microsec_clock::universal_time());
+                    vanetza::security::Certificate cert = mCertVector[0];
+                    for (const auto& restriction : cert.validity_restriction) {
+                        if (auto start_end = boost::get<StartAndEndValidity>(&restriction)) {
+                            // Accessing end_validity
+                            auto end_validity = start_end->end_validity;
+                            if(end_validity < convert_time32(time_now)){
+                                std::cout << "new pseudo" << std::endl;
+                                std::cout << mId << std::endl;
+                                mCertVector.erase(mCertVector.begin());
+                                boolPseudo = true;
+                            }
+                        }
+                    }
+                }
+                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage();
+                request(req, v2vMessage, network.get());
+                std::cout << "V2V message sent." << std::endl;
             }
 
         } else {

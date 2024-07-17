@@ -16,10 +16,26 @@
 #ifndef RSUEXAMPLE_H_
 #define RSUEXAMPLE_H_
 
+#include "PseudonymMessageHandler.h"
+#include "CertificateManager.h"
+
 #include "artery/application/ItsG5Service.h"
 #include "artery/application/NetworkInterface.h"
 #include <vanetza/security/basic_elements.hpp>
 #include <vanetza/security/certificate.hpp>
+#include <vanetza/security/backend.hpp>
+#include "vanetza/security/ecdsa256.hpp"
+
+#include "CRLMessage_m.h"
+#include "artery/application/ItsG5BaseService.h"
+#include "artery/application/ItsG5Service.h"
+
+#include <omnetpp.h>
+#include <vanetza/security/backend_cryptopp.hpp>
+#include <vanetza/security/certificate.hpp>
+
+#include <set>
+#include <vector>
 
 namespace artery
 {
@@ -41,6 +57,13 @@ class RsuExample : public ItsG5Service
 
     private:
         omnetpp::cMessage* m_self_msg;
+        bool boolPseudo;
+        bool boolEnroll;
+
+        omnetpp::cMessage* mTriggerMessage;
+
+        CRLMessage* createAndPopulateCRL(const std::vector<vanetza::security::Certificate>& revokedCertificates);
+        std::vector<vanetza::security::Certificate> generateDummyRevokedCertificates(size_t count);
 };
 
 } // namespace artery
