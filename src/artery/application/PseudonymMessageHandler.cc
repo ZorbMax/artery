@@ -1,4 +1,5 @@
 #include "PseudonymMessageHandler.h"
+
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
 
@@ -15,7 +16,7 @@ PseudonymMessageHandler::PseudonymMessageHandler(
 PseudonymMessage* PseudonymMessageHandler::createPseudonymMessage(vanetza::security::ecdsa256::PublicKey& public_key, std::string id)
 {
     PseudonymMessage* pseudonymMessage = new PseudonymMessage("PseudonymMessage");
-    
+
 
     pseudonymMessage->setTimestamp(omnetpp::simTime());
     pseudonymMessage->setCertificate(mRootCert);
@@ -67,9 +68,38 @@ PseudonymMessage* PseudonymMessageHandler::createPseudonymMessage(vanetza::secur
     return pseudonymMessage;
 }
 
+PseudonymMessage* PseudonymMessageHandler::createPseudonymMessage(
+    vanetza::security::Certificate& pseudonym, vanetza::security::ecdsa256::PublicKey& public_key, std::string id)
+{
+    PseudonymMessage* pseudonymMessage = new PseudonymMessage("PseudonymMessage");
+
+    pseudonymMessage->setTimestamp(omnetpp::simTime());
+    pseudonymMessage->setCertificate(mRootCert);
+    pseudonymMessage->setPseudonym(pseudonym);
+    pseudonymMessage->setPublic_key(public_key);
+    std::string payload = id;
+    pseudonymMessage->setPayload(payload.c_str());
+
+    if (mBackend) {
+        vanetza::ByteBuffer dataToSign;
+
+        uint64_t timestamp = static_cast<uint64_t>(pseudonymMessage->getTimestamp().dbl() * 1e9);
+        dataToSign.insert(dataToSign.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
+        std::string payload = pseudonymMessage->getPayload();
+        dataToSign.insert(dataToSign.end(), payload.begin(), payload.end());
+
+        vanetza::security::EcdsaSignature ecdsaSignature = mBackend->sign_data(mKeyPair.private_key, dataToSign);
+        pseudonymMessage->setSignature(ecdsaSignature);
+    } else {
+        std::cerr << "Error: BackendCryptoPP is nullptr" << std::endl;
+    }
+
+    return pseudonymMessage;
+}
+
 bool PseudonymMessageHandler::verifyPseudonymSignature(const PseudonymMessage* pseudonymMessage)
 {
-    //std::cout << "Started pseudonym message signature verification..." << std::endl;
+    // std::cout << "Started pseudonym message signature verification..." << std::endl;
 
     vanetza::ByteBuffer dataToVerify;
 
@@ -81,10 +111,10 @@ bool PseudonymMessageHandler::verifyPseudonymSignature(const PseudonymMessage* p
     const vanetza::security::EcdsaSignature& signature = pseudonymMessage->getSignature();
 
     bool isValid = false;
-    
+
     try {
         isValid = mBackend->verify_data(extractPublicKey(pseudonymMessage->getCertificate()), dataToVerify, signature);
-        //std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
+        // std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
     } catch (const std::runtime_error& e) {
         std::cout << "Error during signature verification: " << e.what() << std::endl;
     }

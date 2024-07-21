@@ -1,8 +1,20 @@
-#include <cryptopp/eccrypto.h>
+#ifndef GENERATE_CERTIFICATE_HPP
+#define GENERATE_CERTIFICATE_HPP
+
+#include <vanetza/security/basic_elements.hpp>
 #include <vanetza/security/certificate.hpp>
+#include <vanetza/security/ecdsa256.hpp>
 
-vanetza::security::Certificate GenerateCertificate(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key);
+namespace vanetza
+{
+namespace security
+{
 
-vanetza::security::Certificate GeneratePseudonym(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key);
+Certificate GenerateCertificate(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key);
 
-/* CERTIFY_COMMANDS_GENERATE_ROOT_HPP */
+Certificate GeneratePseudonym(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key);
+
+}  // namespace security
+}  // namespace vanetza
+
+#endif  // GENERATE_CERTIFICATE_HPP

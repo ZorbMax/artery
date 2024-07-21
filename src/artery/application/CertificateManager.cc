@@ -16,7 +16,7 @@ bool CertificateManager::verifyCertificate(const vanetza::security::Certificate&
 
 bool CertificateManager::isRevoked(const vanetza::security::HashedId8& certificateHash)
 {
-    return std::binary_search(mLocalCRL.begin(), mLocalCRL.end(), certificateHash);
+    return std::find(mLocalCRL.begin(), mLocalCRL.end(), certificateHash) != mLocalCRL.end();
 }
 
 void CertificateManager::updateLocalCRL(const std::vector<vanetza::security::HashedId8>& revokedCertificates)

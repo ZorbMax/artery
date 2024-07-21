@@ -12,7 +12,7 @@ class V2VMessageHandler
 public:
     V2VMessageHandler(
         vanetza::security::BackendCryptoPP* backend, const vanetza::security::ecdsa256::KeyPair& keyPair, const vanetza::security::Certificate& certificate);
-    V2VMessage* createV2VMessage();
+    V2VMessage* createV2VMessage(const std::string& message);
     bool verifyV2VSignature(const V2VMessage* v2vMessage);
 
 private:

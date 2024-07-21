@@ -13,13 +13,13 @@ V2VMessageHandler::V2VMessageHandler(
 {
 }
 
-V2VMessage* V2VMessageHandler::createV2VMessage()
+V2VMessage* V2VMessageHandler::createV2VMessage(const std::string& payload)
 {
     V2VMessage* v2vMessage = new V2VMessage("V2VMessage");
 
     v2vMessage->setTimestamp(omnetpp::simTime());
     v2vMessage->setCertificate(mRootCert);
-    v2vMessage->setPayload("This is a V2V message payload.");
+    v2vMessage->setPayload(payload.c_str());
 
     if (mBackend) {
         vanetza::ByteBuffer dataToSign;
@@ -40,7 +40,7 @@ V2VMessage* V2VMessageHandler::createV2VMessage()
 
 bool V2VMessageHandler::verifyV2VSignature(const V2VMessage* v2vMessage)
 {
-    std::cout << "Started V2V message signature verification..." << std::endl;
+    //std::cout << "Started V2V message signature verification..." << std::endl;
 
     vanetza::ByteBuffer dataToVerify;
 
@@ -54,7 +54,7 @@ bool V2VMessageHandler::verifyV2VSignature(const V2VMessage* v2vMessage)
     bool isValid = false;
     try {
         isValid = mBackend->verify_data(extractPublicKey(v2vMessage->getCertificate()), dataToVerify, signature);
-        std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
+        //std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
     } catch (const std::runtime_error& e) {
         std::cout << "Error during signature verification: " << e.what() << std::endl;
     }

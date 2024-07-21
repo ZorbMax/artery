@@ -52,7 +52,7 @@ CRLMessage* CRLMessageHandler::createCRLMessage(const std::vector<vanetza::secur
 
 bool CRLMessageHandler::verifyCRLSignature(const CRLMessage* crlMessage)
 {
-    std::cout << "Started signature verification..." << std::endl;
+    // std::cout << "Started signature verification..." << std::endl;
 
     vanetza::ByteBuffer dataToVerify;
 
@@ -72,9 +72,9 @@ bool CRLMessageHandler::verifyCRLSignature(const CRLMessage* crlMessage)
     bool isValid = false;
     try {
         isValid = mBackend->verify_data(extractPublicKey(crlMessage->getMSignerCertificate()), dataToVerify, signature);
-        std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
+        // std::cout << "Signature verification completed. Result: " << (isValid ? "Valid" : "Invalid") << std::endl;
     } catch (const std::runtime_error& e) {
-        std::cout << "Error during signature verification: " << e.what() << std::endl;
+        // std::cout << "Error during signature verification: " << e.what() << std::endl;
     }
 
     return isValid;

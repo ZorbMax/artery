@@ -14,34 +14,6 @@
 //
 #include "ExampleService.h"
 
-#include "artery/traci/VehicleController.h"
-#include "certify/generate-key.hpp"
-#include "tools/PublicKey.h"
-#include "certify/generate-root.hpp"
-#include "V2VMessage_m.h"
-
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
-#include <omnetpp/cpacket.h>
-#include <vanetza/dcc/profile.hpp>
-#include <vanetza/geonet/interface.hpp>
-#include <vanetza/common/byte_buffer.hpp>
-#include <vanetza/security/ecdsa256.hpp>
-#include <vanetza/btp/data_indication.hpp>
-#include <vanetza/btp/data_request.hpp>
-#include <vanetza/btp/ports.hpp>
-#include <vanetza/common/byte_buffer.hpp>
-#include <vanetza/geonet/data_confirm.hpp>
-#include <vanetza/geonet/router.hpp>
-#include <vanetza/security/backend.hpp>
-#include <vanetza/security/basic_elements.hpp>
-#include <vanetza/security/certificate.hpp>
-#include <vanetza/security/ecdsa256.hpp>
-#include <vanetza/security/public_key.hpp>
-#include <vanetza/security/subject_attribute.hpp>
-#include <vanetza/security/subject_info.hpp>
-
 #include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
 #include "CertificateManager.h"
@@ -49,16 +21,24 @@
 #include "V2VMessageHandler.h"
 #include "V2VMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
+#include "artery/traci/VehicleController.h"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
+#include "tools/PublicKey.h"
 
 #include <arpa/inet.h>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
 #include <omnetpp.h>
+#include <omnetpp/cpacket.h>
 #include <vanetza/btp/data_indication.hpp>
 #include <vanetza/btp/data_request.hpp>
 #include <vanetza/btp/ports.hpp>
 #include <vanetza/common/byte_buffer.hpp>
+#include <vanetza/dcc/profile.hpp>
 #include <vanetza/geonet/data_confirm.hpp>
+#include <vanetza/geonet/interface.hpp>
 #include <vanetza/geonet/router.hpp>
 #include <vanetza/security/backend.hpp>
 #include <vanetza/security/basic_elements.hpp>
@@ -71,10 +51,8 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
-#include <vector>
-
-
 #include <string>
+#include <vector>
 
 using namespace omnetpp;
 using namespace vanetza;
@@ -146,14 +124,14 @@ void ExampleService::indicate(const btp::DataIndication& ind, cPacket* packet, c
             return;
         }
 
-		// Check if the message is a Pseudonym request message
+        // Check if the message is a Pseudonym request message
         PseudonymMessage* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet);
         if (boolPseudo && pseudonymMessage && std::strstr(pseudonymMessage->getPayload(), "This is a pseudonym response") != nullptr) {
-			// TODO verify if cert is the one from pseudonym provider
-            //if (!mPseudonymHandler->verifyPseudonymSignature(pseudonymMessage)) {
-        	//    std::cout << "Pseudonym message signature verification failed." << std::endl;
-        	//    return;
-    		//}
+            // TODO verify if cert is the one from pseudonym provider
+            // if (!mPseudonymHandler->verifyPseudonymSignature(pseudonymMessage)) {
+            //     std::cout << "Pseudonym message signature verification failed." << std::endl;
+            //     return;
+            // }
             std::string payload = pseudonymMessage->getPayload();
             size_t dot = payload.find(".");
             std::string id;
@@ -161,7 +139,7 @@ void ExampleService::indicate(const btp::DataIndication& ind, cPacket* packet, c
                 // Cut the string after the delimiter
                 id = payload.substr(dot + 1);
             }
-            if(id == mId){
+            if (id == mId) {
                 std::cout << "pseudo processing" << mId << std::endl;
                 vanetza::security::Certificate cert = pseudonymMessage->getPseudonym();
                 mCRLHandler = std::unique_ptr<CRLMessageHandler>(new CRLMessageHandler(mBackend.get(), mKeyPair, cert));
@@ -169,7 +147,7 @@ void ExampleService::indicate(const btp::DataIndication& ind, cPacket* packet, c
                 mCertVector.push_back(cert);
                 boolPseudo = false;
             }
-        }else{
+        } else {
             auto& vehicle = getFacilities().get_const<traci::VehicleController>();
             std::string id = vehicle.getVehicleId();
             size_t dot = id.find(".");
@@ -297,8 +275,8 @@ void ExampleService::trigger()
     auto& mco = getFacilities().get_const<MultiChannelPolicy>();
     auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-    //std::vector<int>::iterator it;
-    //it = std::find(enrolledVectorr.begin(), enrolledVectorr.end(), std::stoi(mId));
+    // std::vector<int>::iterator it;
+    // it = std::find(enrolledVectorr.begin(), enrolledVectorr.end(), std::stoi(mId));
 
     for (auto channel : mco.allChannels(example_its_aid)) {
         auto network = networks.select(channel);
@@ -327,22 +305,22 @@ void ExampleService::trigger()
                 // send packet on specific network interface
                 request(req, packet, network.get());
                 boolEnroll = false;
-            } else if (boolPseudo){
+            } else if (boolPseudo) {
                 mKeyPair = GenerateKey();
                 vanetza::security::ecdsa256::PublicKey public_key = mKeyPair.public_key;
                 PseudonymMessage* pseudonymMessage = mPseudonymHandler->createPseudonymMessage(public_key, mId);
 
                 // send packet on specific network interface
                 request(req, pseudonymMessage, network.get());
-            }else{
-                if(!mCertVector.empty()){
+            } else {
+                if (!mCertVector.empty()) {
                     auto time_now = vanetza::Clock::at(boost::posix_time::microsec_clock::universal_time());
                     vanetza::security::Certificate cert = mCertVector[0];
                     for (const auto& restriction : cert.validity_restriction) {
                         if (auto start_end = boost::get<StartAndEndValidity>(&restriction)) {
                             // Accessing end_validity
                             auto end_validity = start_end->end_validity;
-                            if(end_validity < convert_time32(time_now)){
+                            if (end_validity < convert_time32(time_now)) {
                                 std::cout << "new pseudo" << std::endl;
                                 std::cout << mId << std::endl;
                                 mCertVector.erase(mCertVector.begin());
@@ -351,7 +329,7 @@ void ExampleService::trigger()
                         }
                     }
                 }
-                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage();
+                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage("My V2V");
                 request(req, v2vMessage, network.get());
                 std::cout << "V2V message sent." << std::endl;
             }

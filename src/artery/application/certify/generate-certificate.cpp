@@ -1,8 +1,8 @@
+#include "generate-certificate.hpp"
+
 #include "generate-root.hpp"
+
 #include <boost/program_options.hpp>
-#include <chrono>
-#include <iostream>
-#include <stdexcept>
 #include <vanetza/common/clock.hpp>
 #include <vanetza/common/its_aid.hpp>
 #include <vanetza/security/backend_cryptopp.hpp>
@@ -11,11 +11,15 @@
 #include <vanetza/security/subject_attribute.hpp>
 #include <vanetza/security/subject_info.hpp>
 
+#include <chrono>
+#include <iostream>
+#include <stdexcept>
+
 namespace aid = vanetza::aid;
 namespace po = boost::program_options;
 using namespace vanetza::security;
 
-Certificate GenerateCertificate(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key)
+Certificate vanetza::security::GenerateCertificate(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key)
 {
     BackendCryptoPP crypto_backend;
     std::string subject_name = "Enrollment certificate";
@@ -67,18 +71,18 @@ Certificate GenerateCertificate(const HashedId8& root_hash, ecdsa256::PrivateKey
     start_and_end.end_validity = convert_time32(time_now + std::chrono::hours(24 * validity_days));
     certificate.validity_restriction.push_back(start_and_end);
 
-    //std::cout << "Signing certificate... ";
+    // std::cout << "Signing certificate... ";
 
     sort(certificate);
     vanetza::ByteBuffer data_buffer = convert_for_signing(certificate);
     certificate.signature = crypto_backend.sign_data(root_key, data_buffer);
 
-    //std::cout << "OK" << std::endl;
+    // std::cout << "OK" << std::endl;
 
     return certificate;
 }
 
-vanetza::security::Certificate GeneratePseudonym(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key)
+Certificate vanetza::security::GeneratePseudonym(const HashedId8& root_hash, ecdsa256::PrivateKey& root_key, ecdsa256::PublicKey& key)
 {
     BackendCryptoPP crypto_backend;
     std::string subject_name = "Pseudonym certificate";
@@ -129,13 +133,13 @@ vanetza::security::Certificate GeneratePseudonym(const HashedId8& root_hash, ecd
     start_and_end.end_validity = convert_time32(time_now + std::chrono::seconds(30));
     certificate.validity_restriction.push_back(start_and_end);
 
-    //std::cout << "Signing certificate... ";
+    // std::cout << "Signing certificate... ";
 
     sort(certificate);
     vanetza::ByteBuffer data_buffer = convert_for_signing(certificate);
     certificate.signature = crypto_backend.sign_data(root_key, data_buffer);
 
-    //std::cout << "OK" << std::endl;
+    // std::cout << "OK" << std::endl;
 
     return certificate;
 }

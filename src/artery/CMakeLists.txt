@@ -4,6 +4,7 @@ add_library(core SHARED
     application/RevocationAuthorityService.cc
     application/VehicleCRLService.cc
     application/CRLMessage_m.cc
+    application/EnrollmentRequest_m.cc
     application/PseudonymMessage_m.cc
     application/V2VMessage_m.cc
     application/V2VMessageHandler.cc

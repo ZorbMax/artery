@@ -3,10 +3,13 @@
 #include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
 #include "CertificateManager.h"
+#include "EnrollmentRequest_m.h"
+#include "PseudonymMessage_m.h"
 #include "RevocationAuthorityService.h"
 #include "V2VMessageHandler.h"
 #include "V2VMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
+#include "artery/traci/VehicleController.h"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
 
@@ -50,16 +53,20 @@ void VehicleCRLService::initialize()
 
     // Generate the key pair and certificate once during initialization
     mKeyPair = mBackend->generate_key_pair();
-    mCertificate = GenerateRoot(mKeyPair);
+    auto tempPseudonym = GenerateRoot(mKeyPair);
 
     mCertificateManager = std::unique_ptr<CertificateManager>(new CertificateManager());
-    mCRLHandler = std::unique_ptr<CRLMessageHandler>(new CRLMessageHandler(mBackend.get(), mKeyPair, mCertificate));
-    mV2VHandler = std::unique_ptr<V2VMessageHandler>(new V2VMessageHandler(mBackend.get(), mKeyPair, mCertificate));
+    mPseudonymHandler = std::unique_ptr<PseudonymMessageHandler>(new PseudonymMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
+    mCRLHandler = std::unique_ptr<CRLMessageHandler>(new CRLMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
 
     std::cout << "VehicleCRLService initialized." << std::endl;
 
+    // Initialize the flag to false
+    enrollmentRequestSent = false;
+    enrolled = false;
+
     // Schedule the first trigger event
-    scheduleAt(simTime() + 1.0, new cMessage("triggerEvent"));
+    scheduleAt(simTime() + 200.0, new cMessage("triggerEvent"));
 }
 
 
@@ -71,9 +78,20 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
         // Check if the message is a CRL message
         CRLMessage* crlMessage = dynamic_cast<CRLMessage*>(packet);
         if (crlMessage) {
-            std::cout << "Received a CRLMessage. Processing..." << std::endl;
+            // std::cout << "Received a CRLMessage. Processing..." << std::endl;
             handleCRLMessage(crlMessage);
             delete crlMessage;
+            return;
+        }
+
+        // Check if the message is a Pseudonym Message (Enrollment Response)
+        PseudonymMessage* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet);
+        if (pseudonymMessage) {
+            auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+            std::string id = vehicle.getVehicleId();
+            std::cout << "Vehicle " + id + " got PS for " + pseudonymMessage->getPayload() << std::endl;
+            handlePseudonymMessage(pseudonymMessage);
+            delete pseudonymMessage;
             return;
         }
 
@@ -82,9 +100,13 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
         if (v2vMessage) {
             std::cout << "Received a V2VMessage. Processing..." << std::endl;
 
-            // Extract the certificate from the V2V message
-            const vanetza::security::Certificate& cert = v2vMessage->getCertificate();
+            if (!enrolled) {
+                std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
+                discardMessage(v2vMessage);
+                return;
+            }
 
+            const vanetza::security::Certificate& cert = v2vMessage->getCertificate();
             // Check if the certificate is valid
             if (!mCertificateManager->verifyCertificate(cert)) {
                 std::cout << "Invalid certificate. Dropping message." << std::endl;
@@ -95,7 +117,15 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
             // Check if the certificate is revoked
             vanetza::security::HashedId8 certHash = calculate_hash(cert);
             if (mCertificateManager->isRevoked(certHash)) {
-                std::cout << "Certificate is revoked. Dropping message." << std::endl;
+                auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+                std::string receiverId = vehicle.getVehicleId();
+                std::string senderId = v2vMessage->getPayload();
+
+                std::cout << "=== MESSAGE DISCARDED ===" << std::endl;
+                std::cout << "Receiving vehicle: " << receiverId << std::endl;
+                std::cout << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl;
+                std::cout << "=========================" << std::endl;
+
                 discardMessage(v2vMessage);
                 return;
             }
@@ -107,21 +137,48 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
                 return;
             }
 
-            // Process the valid and non-revoked V2V message
-            processMessage(v2vMessage);
+            handleV2VMessage(v2vMessage);
             return;
         }
-
-        std::cout << "Received an unknown type of packet. Ignoring." << std::endl;
     } else {
         std::cout << "Received packet is nullptr. Ignoring." << std::endl;
     }
+    delete packet;
 }
 
 void VehicleCRLService::discardMessage(cPacket* packet)
 {
-    delete packet;  // Simple way to discard the message
-    std::cout << "Message discarded." << std::endl;
+    delete packet;
+    // std::cout << "Message discarded." << std::endl;
+}
+
+void VehicleCRLService::handlePseudonymMessage(PseudonymMessage* pseudonymMessage)
+{
+    auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+    std::string currentVehicleId = vehicle.getVehicleId();
+
+    // Step 1: Check if the message is intended for this vehicle
+    if (pseudonymMessage->getPayload() != currentVehicleId) {
+        // std::cout << "PseudonymMessage is not intended for this vehicle. Ignoring message." << std::endl;
+        return;
+    }
+
+    // Step 2: Extract pseudonym cert
+    vanetza::security::Certificate newPseudonym = pseudonymMessage->getPseudonym();
+
+    // Step 3: Verify the signature
+    if (!mPseudonymHandler->verifyPseudonymSignature(pseudonymMessage)) {
+        std::cout << "Invalid PseudonymMessage signature. Dropping message." << std::endl;
+        return;
+    }
+
+    // TODO: Step 4: Verify the CA's Certificate
+
+    // Step 5: Update pseudonym certificate
+    mPseudonymCertificate = newPseudonym;
+    mV2VHandler = std::unique_ptr<V2VMessageHandler>(new V2VMessageHandler(mBackend.get(), mKeyPair, mPseudonymCertificate));
+    enrolled = true;
+    std::cout << "Pseudonym updated for vehicle " << currentVehicleId << std::endl;
 }
 
 void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
@@ -137,14 +194,17 @@ void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
     }
     mCertificateManager->updateLocalCRL(revokedCertificates);
 
-    std::cout << "CRL message processed successfully." << std::endl;
+    // std::cout << "CRL message processed successfully." << std::endl;
 }
 
-void VehicleCRLService::processMessage(V2VMessage* v2vMessage)
+void VehicleCRLService::handleV2VMessage(V2VMessage* v2vMessage)
 {
+    auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+    std::string id = vehicle.getVehicleId();
     // Implement V2V message processing logic
-    std::cout << "Processing V2V message..., payload: " << v2vMessage->getPayload() << std::endl;
+    std::cout << "Vehicle " + id + " got V2V from " << v2vMessage->getPayload() << std::endl;
     // Process the message as needed
+    delete v2vMessage;
 }
 
 void VehicleCRLService::trigger()
@@ -152,31 +212,70 @@ void VehicleCRLService::trigger()
     Enter_Method("trigger");
     using namespace vanetza;
 
-    static const vanetza::ItsAid v2v_its_aid = 623;  // Different AID for V2V messages
-    auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-    auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+    if (!enrollmentRequestSent) {
+        // Send enrollment request
+        auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+        std::string id = vehicle.getVehicleId();
 
-    for (auto channel : mco.allChannels(v2v_its_aid)) {
-        auto network = networks.select(channel);
-        if (network) {
-            btp::DataRequestB req;
-            req.destination_port = host_cast(getPortNumber(channel));
-            req.gn.transport_type = geonet::TransportType::SHB;
-            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-            req.gn.its_aid = v2v_its_aid;
+        EnrollmentRequest* enrollmentRequest = new EnrollmentRequest();
+        enrollmentRequest->setVehicleId(id.c_str());
+        enrollmentRequest->setPublicKey(mKeyPair.public_key);
 
-            V2VMessage* v2vMessage = mV2VHandler->createV2VMessage();
-            request(req, v2vMessage, network.get());
-            std::cout << "V2V message sent." << std::endl;
-        } else {
-            std::cerr << "No network interface available for channel " << channel << std::endl;
+        // Send the enrollment request to the CA
+        static const vanetza::ItsAid enrollment_its_aid = 622;
+        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+
+        for (auto channel : mco.allChannels(enrollment_its_aid)) {
+            auto network = networks.select(channel);
+            if (network) {
+                btp::DataRequestB req;
+                req.destination_port = host_cast(getPortNumber(channel));
+                req.gn.transport_type = geonet::TransportType::SHB;
+                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+                req.gn.its_aid = enrollment_its_aid;
+
+                request(req, enrollmentRequest, network.get());
+                std::cout << "Enrollment request sent from: " + id << std::endl;
+            } else {
+                std::cerr << "No network interface available for channel " << channel << std::endl;
+            }
+        }
+
+        enrollmentRequestSent = true;
+    } else {
+        static const vanetza::ItsAid v2v_its_aid = 623;
+        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+
+        auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+        std::string id = vehicle.getVehicleId();
+
+        for (auto channel : mco.allChannels(v2v_its_aid)) {
+            auto network = networks.select(channel);
+            if (network) {
+                btp::DataRequestB req;
+                req.destination_port = host_cast(getPortNumber(channel));
+                req.gn.transport_type = geonet::TransportType::SHB;
+                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+                req.gn.its_aid = v2v_its_aid;
+
+                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
+                v2vMessage->setCertificate(mPseudonymCertificate);
+                request(req, v2vMessage, network.get());
+                std::cout << "V2V message sent." << std::endl;
+            } else {
+                std::cerr << "No network interface available for channel " << channel << std::endl;
+            }
         }
     }
 
     // Schedule the next trigger
-    scheduleAt(simTime() + 1.0, new cMessage("triggerEvent"));
+    scheduleAt(simTime() + 200.0, new cMessage("triggerEvent"));
 }
+}  // namespace artery
 
 void VehicleCRLService::handleMessage(cMessage* msg)
 {
@@ -188,4 +287,4 @@ void VehicleCRLService::handleMessage(cMessage* msg)
     }
 }
 
-}  // namespace artery
+// namespace artery

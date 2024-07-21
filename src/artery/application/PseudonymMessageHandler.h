@@ -12,6 +12,7 @@ class PseudonymMessageHandler
 public:
     PseudonymMessageHandler(
         vanetza::security::BackendCryptoPP* backend, const vanetza::security::ecdsa256::KeyPair& keyPair, const vanetza::security::Certificate& certificate);
+    PseudonymMessage* createPseudonymMessage(vanetza::security::Certificate& pseudonym, vanetza::security::ecdsa256::PublicKey& public_key, std::string id);
     PseudonymMessage* createPseudonymMessage(vanetza::security::ecdsa256::PublicKey& public_key, std::string id);
     PseudonymMessage* createPseudonymMessage(vanetza::security::Certificate& pseudonym, std::string id);
     bool verifyPseudonymSignature(const PseudonymMessage* PseudonymMessage);
