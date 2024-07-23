@@ -41,7 +41,7 @@ void SelfRevocationAuthService::initialize()
 
     mHeartbeatInterval = 1.5;
     mRevocationInterval = 5.0;
-    mTv = 8;  // 5 minutes
+    mTv = 20.0; //validity window
     mTeff = 2 * mTv;
 
     scheduleAt(simTime() + mHeartbeatInterval, new cMessage("triggerHeartbeat"));
@@ -51,6 +51,7 @@ void SelfRevocationAuthService::initialize()
 void SelfRevocationAuthService::handleMessage(cMessage* msg)
 {
     if (strcmp(msg->getName(), "triggerHeartbeat") == 0) {
+        removeExpiredRevocations();
         generateAndSendHeartbeat();
         scheduleAt(simTime() + mHeartbeatInterval, msg);
     } else if (strcmp(msg->getName(), "triggerRevocation") == 0) {
@@ -97,14 +98,14 @@ HBMessage* SelfRevocationAuthService::createAndPopulateHeartbeat()
 
     hbMessage->setMTimestamp(omnetpp::simTime());
 
-    std::cout << "Creating heartbeat message at time: " << omnetpp::simTime().dbl() << std::endl;
-    std::cout << "Number of entries in mMasterPRL: " << mMasterPRL.size() << std::endl;
+    // std::cout << "Creating heartbeat message at time: " << omnetpp::simTime().dbl() << std::endl;
+    // std::cout << "Number of entries in mMasterPRL: " << mMasterPRL.size() << std::endl;
 
     hbMessage->setPRLArraySize(mMasterPRL.size());
 
     size_t index = 0;
     for (const auto& entry : mMasterPRL) {
-        std::cout << "Adding PRL entry at index " << index << std::endl;
+        // std::cout << "Adding PRL entry at index " << index << std::endl;
         hbMessage->setPRL(index, entry.first);
         index++;
     }
@@ -162,16 +163,42 @@ void SelfRevocationAuthService::revokeRandomCertificate()
     std::cout << "========================" << std::endl;
 }
 
+std::string SelfRevocationAuthService::convertToHexString(const vanetza::security::HashedId8& hashedId)
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t byte : hashedId) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
+}
+
 void SelfRevocationAuthService::removeExpiredRevocations()
 {
     auto currentTime = simTime().dbl();
     auto it = mMasterPRL.begin();
+    int removedCount = 0;
+
+    std::cout << "\n=== REMOVING EXPIRED REVOCATIONS ===" << std::endl;
+    std::cout << "Current time: " << currentTime << std::endl;
+
     while (it != mMasterPRL.end()) {
-        if (currentTime - it->second > mTeff) {
-            std::cout << "Removing expired revocation from PRL" << std::endl;
+        double entryAge = currentTime - it->second;
+
+        std::cout << "Entry: " << convertToHexString(it->first) << std::endl;
+        std::cout << "  Condition: " << entryAge << " > " << mTeff;
+
+        if (entryAge > mTeff) {
+            std::cout << " (Removing)" << std::endl;
             it = mMasterPRL.erase(it);
+            removedCount++;
         } else {
+            std::cout << " (Keeping)" << std::endl;
             ++it;
         }
     }
+
+    std::cout << "Total revocations removed: " << removedCount << std::endl;
+    std::cout << "Remaining entries in PRL: " << mMasterPRL.size() << std::endl;
+    std::cout << "===================================\n" << std::endl;
 }

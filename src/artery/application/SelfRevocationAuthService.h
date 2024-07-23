@@ -22,6 +22,7 @@ private:
     HBMessage* createAndPopulateHeartbeat();
     void generateAndSendHeartbeat();
     void removeExpiredRevocations();
+    std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::map<vanetza::security::HashedId8, double> mMasterPRL;
     double mHeartbeatInterval;

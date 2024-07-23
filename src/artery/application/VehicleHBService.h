@@ -30,7 +30,9 @@ private:
     bool enrolled;
     bool mIsRevoked;
     double mInternalClock;
-    double mValidityWindow;
+    double mTv;
+    omnetpp::simtime_t mLastActionTime;
+    omnetpp::simtime_t mActionInterval;
 
     void handleHBMessage(HBMessage* heartbeatMessage);
     void handlePseudonymMessage(PseudonymMessage* pseudonymMessage);
@@ -39,6 +41,7 @@ private:
     void trigger() override;
     void checkAutomaticRevocation(omnetpp::simtime_t messageTimestamp);
     void performSelfRevocation();
+    // void sendV2VMessage();
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
