@@ -31,6 +31,7 @@ protected:
     virtual void handleEnrollmentRequest(EnrollmentRequest* request);
     virtual void sendPseudonymCertificate(
         vanetza::security::Certificate& pseudoCert, vanetza::security::ecdsa256::PublicKey& publicKey, std::string& vehicleId);
+    virtual void recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert) {}
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;

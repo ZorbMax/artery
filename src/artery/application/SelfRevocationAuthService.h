@@ -3,6 +3,7 @@
 
 #include "CentralAuthService.h"
 #include "HBMessage_m.h"
+#include "SelfRevocationMetrics.h"
 
 #include <map>
 
@@ -14,9 +15,11 @@ class SelfRevocationAuthService : public CentralAuthService
 public:
     void initialize() override;
     void handleMessage(omnetpp::cMessage* msg) override;
+    void finish() override;
 
 protected:
     void revokeRandomCertificate() override;
+    void recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert) override;
 
 private:
     HBMessage* createAndPopulateHeartbeat();
@@ -24,6 +27,8 @@ private:
     void removeExpiredRevocations();
     std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
+    std::unique_ptr<SelfRevocationMetrics> mMetrics;
+    std::set<std::string> mActiveVehicles;
     std::map<vanetza::security::HashedId8, double> mMasterPRL;
     double mHeartbeatInterval;
     double mTv;

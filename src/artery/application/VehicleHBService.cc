@@ -57,17 +57,16 @@ void VehicleHBService::initialize()
     mPseudonymHandler = std::unique_ptr<PseudonymMessageHandler>(new PseudonymMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
     mHBHandler = std::unique_ptr<HBMessageHandler>(new HBMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
 
-    std::cout << "VehicleHBService initialized." << std::endl;
-
     enrollmentRequestSent = false;
     enrolled = false;
     mIsRevoked = false;
     mInternalClock = simTime().dbl();
-    mTv = 20.0; // validity window
+    mTv = 20.0;  // validity window
     mLastActionTime = simTime();
-    mActionInterval = 0.5;
+    mActionInterval = 2;
 
-    scheduleAt(simTime() + 0.5, new cMessage("triggerEvent"));
+    scheduleAt(simTime() + 1, new cMessage("triggerEvent"));
+    std::cout << "VehicleHBService initialized." << std::endl;
 }
 
 

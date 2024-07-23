@@ -39,13 +39,26 @@ void SelfRevocationAuthService::initialize()
 {
     CentralAuthService::initialize();
 
+    mMetrics.reset(new SelfRevocationMetrics());
     mHeartbeatInterval = 1.5;
-    mRevocationInterval = 5.0;
-    mTv = 20.0; //validity window
+    mRevocationInterval = 8.0;
+    mTv = 50.0;  // validity window
     mTeff = 2 * mTv;
 
     scheduleAt(simTime() + mHeartbeatInterval, new cMessage("triggerHeartbeat"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
+
+    // Record initial active vehicle count
+    mMetrics->recordActiveVehicleCount(mIssuedCertificates.size(), simTime().dbl());
+}
+
+void SelfRevocationAuthService::finish()
+{
+    CentralAuthService::finish();
+
+    std::string filename = "self_revocation_metrics_" + std::to_string(getParentModule()->getId()) + ".csv";
+    mMetrics->exportToCSV(filename);
+    mMetrics->printMetrics();
 }
 
 void SelfRevocationAuthService::handleMessage(cMessage* msg)
@@ -53,6 +66,7 @@ void SelfRevocationAuthService::handleMessage(cMessage* msg)
     if (strcmp(msg->getName(), "triggerHeartbeat") == 0) {
         removeExpiredRevocations();
         generateAndSendHeartbeat();
+        mMetrics->recordActiveVehicleCount(mActiveVehicles.size(), simTime().dbl());
         scheduleAt(simTime() + mHeartbeatInterval, msg);
     } else if (strcmp(msg->getName(), "triggerRevocation") == 0) {
         revokeRandomCertificate();
@@ -85,6 +99,11 @@ void SelfRevocationAuthService::generateAndSendHeartbeat()
 
             HBMessage* hbMessage = createAndPopulateHeartbeat();
             request(req, hbMessage, network.get());
+
+            // Estimate message size (you may need to implement a more accurate method)
+            size_t messageSize = sizeof(HBMessage) + mMasterPRL.size() * sizeof(vanetza::security::HashedId8);
+            mMetrics->recordHeartbeat(messageSize, simTime().dbl());
+
             std::cout << "Heartbeat message sent. Revoked certificates: " << mMasterPRL.size() << std::endl;
         } else {
             std::cerr << "No network interface available for channel " << channel << std::endl;
@@ -141,6 +160,18 @@ void SelfRevocationAuthService::revokeRandomCertificate()
         return;
     }
 
+    // Calculate current revocation rate
+    size_t totalCertificates = mIssuedCertificates.size() + mMasterPRL.size();
+    double currentRevocationRate = static_cast<double>(mMasterPRL.size()) / totalCertificates;
+
+    // Check if revocation rate is already at or above 30%
+    if (currentRevocationRate >= 0.30) {
+        std::cout << "=== REVOCATION SKIPPED ===" << std::endl;
+        std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "% (max 30%)" << std::endl;
+        std::cout << "========================" << std::endl;
+        return;
+    }
+
     // Select a random certificate
     auto it = mIssuedCertificates.begin();
     std::advance(it, rand() % mIssuedCertificates.size());
@@ -151,15 +182,24 @@ void SelfRevocationAuthService::revokeRandomCertificate()
     // Add the hash to the master PRL if it's not already there
     if (mMasterPRL.find(hashedId) == mMasterPRL.end()) {
         mMasterPRL[hashedId] = simTime().dbl();
+        mMetrics->recordRevocation(hashedId, simTime().dbl());
     }
 
     std::string vehicleId = it->first;
 
     mIssuedCertificates.erase(it);
+    mActiveVehicles.erase(vehicleId);
+
+    mMetrics->recordActiveVehicleCount(mActiveVehicles.size(), simTime().dbl());
+
+    // Calculate new revocation rate
+    currentRevocationRate = static_cast<double>(mMasterPRL.size()) / totalCertificates;
 
     std::cout << "=== REVOCATION EVENT ===" << std::endl;
     std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
     std::cout << "Master PRL size: " << mMasterPRL.size() << std::endl;
+    std::cout << "Active vehicles: " << mActiveVehicles.size() << std::endl;
+    std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "%" << std::endl;
     std::cout << "========================" << std::endl;
 }
 
@@ -201,4 +241,12 @@ void SelfRevocationAuthService::removeExpiredRevocations()
     std::cout << "Total revocations removed: " << removedCount << std::endl;
     std::cout << "Remaining entries in PRL: " << mMasterPRL.size() << std::endl;
     std::cout << "===================================\n" << std::endl;
+}
+
+void SelfRevocationAuthService::recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert)
+{
+    vanetza::security::HashedId8 hashedId = calculate_hash(cert);
+    mMetrics->recordCertificateIssuance(hashedId, simTime().dbl());
+    mActiveVehicles.insert(vehicleId);
+    mMetrics->recordActiveVehicleCount(mActiveVehicles.size(), simTime().dbl());
 }

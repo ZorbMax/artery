@@ -1,4 +1,5 @@
 #include "CentralAuthService.h"
+
 #include "EnrollmentRequest_m.h"
 #include "PseudonymMessage_m.h"
 #include "certify/generate-certificate.hpp"
@@ -10,7 +11,8 @@ using namespace vanetza;
 using namespace security;
 using namespace omnetpp;
 
-namespace artery {
+namespace artery
+{
 
 void CentralAuthService::initialize()
 {
@@ -50,7 +52,7 @@ void CentralAuthService::indicate(const vanetza::btp::DataIndication& ind, cPack
 
 void CentralAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
 {
-    //std::cout << "Processing EnrollmentRequest from vehicle: " << request->getVehicleId() << std::endl;
+    // std::cout << "Processing EnrollmentRequest from vehicle: " << request->getVehicleId() << std::endl;
 
     vanetza::security::ecdsa256::PublicKey& vehiclePublicKey = request->getPublicKey();
     vanetza::security::ecdsa256::PrivateKey privateKey = mKeyPair.private_key;
@@ -60,6 +62,7 @@ void CentralAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
     vanetza::security::Certificate pseudonymCert = GeneratePseudonym(rootHash, privateKey, vehiclePublicKey);
 
     mIssuedCertificates[vehicleId] = pseudonymCert;
+    recordCertificateIssuance(vehicleId, pseudonymCert);
 
     sendPseudonymCertificate(pseudonymCert, vehiclePublicKey, vehicleId);
 }
@@ -93,4 +96,4 @@ void CentralAuthService::sendPseudonymCertificate(
     }
 }
 
-} // namespace artery
+}  // namespace artery
