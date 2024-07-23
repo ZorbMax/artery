@@ -1,15 +1,19 @@
 add_library(artery INTERFACE)
 add_library(core SHARED
     StaticNodeManager.cc
-    application/RevocationAuthorityService.cc
+    application/CentralAuthService.cc
+    application/SelfRevocationAuthService.cc
     application/VehicleCRLService.cc
+    application/VehicleHBService.cc
     application/CRLMessage_m.cc
+    application/HBMessage_m.cc
     application/EnrollmentRequest_m.cc
     application/PseudonymMessage_m.cc
     application/V2VMessage_m.cc
     application/V2VMessageHandler.cc
     application/CRLMessageHandler.cc
     application/PseudonymMessageHandler.cc
+    application/HBMessageHandler.cc
     application/CertificateManager.cc
     application/CaObject.cc
     application/CaService.cc

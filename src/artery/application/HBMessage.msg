@@ -26,7 +26,7 @@ class vanetza::security::Certificate
 packet HBMessage
 {
     simtime_t mTimestamp;
-    vanetza::security::HashedId8 mRevokedCertificates[];
+    vanetza::security::HashedId8 PRL[];
     vanetza::security::EcdsaSignature mSignature;
     vanetza::security::Certificate mSignerCertificate;
 }

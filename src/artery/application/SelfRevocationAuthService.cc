@@ -1,7 +1,6 @@
-#include "RevocationAuthorityService.h"
+#include "SelfRevocationAuthService.h"
 
-#include "CRLMessage_m.h"
-#include "EnrollmentRequest_m.h"
+#include "HBMessage_m.h"
 #include "PseudonymMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
 #include "certify/generate-certificate.hpp"
@@ -29,28 +28,31 @@
 #include <memory>
 #include <vector>
 
-Define_Module(artery::RevocationAuthorityService)
+Define_Module(artery::SelfRevocationAuthService)
 
 using namespace artery;
 using namespace vanetza;
 using namespace security;
 using namespace omnetpp;
 
-void RevocationAuthorityService::initialize()
+void SelfRevocationAuthService::initialize()
 {
     CentralAuthService::initialize();
 
-    mCrlGenInterval = 1.0;
+    mHeartbeatInterval = 1.5;
+    mRevocationInterval = 5.0;
+    mTv = 8;  // 5 minutes
+    mTeff = 2 * mTv;
 
-    scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
+    scheduleAt(simTime() + mHeartbeatInterval, new cMessage("triggerHeartbeat"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
 }
 
-void RevocationAuthorityService::handleMessage(cMessage* msg)
+void SelfRevocationAuthService::handleMessage(cMessage* msg)
 {
-    if (strcmp(msg->getName(), "triggerCRLGen") == 0) {
-        generateAndSendCRL();
-        scheduleAt(simTime() + mCrlGenInterval, msg);
+    if (strcmp(msg->getName(), "triggerHeartbeat") == 0) {
+        generateAndSendHeartbeat();
+        scheduleAt(simTime() + mHeartbeatInterval, msg);
     } else if (strcmp(msg->getName(), "triggerRevocation") == 0) {
         revokeRandomCertificate();
         scheduleAt(simTime() + mRevocationInterval, msg);
@@ -62,15 +64,15 @@ void RevocationAuthorityService::handleMessage(cMessage* msg)
     }
 }
 
-void RevocationAuthorityService::generateAndSendCRL()
+void SelfRevocationAuthService::generateAndSendHeartbeat()
 {
     using namespace vanetza;
 
-    static const vanetza::ItsAid crl_its_aid = 622;
+    static const vanetza::ItsAid heartbeat_its_aid = 622;
     auto& mco = getFacilities().get_const<MultiChannelPolicy>();
     auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-    for (auto channel : mco.allChannels(crl_its_aid)) {
+    for (auto channel : mco.allChannels(heartbeat_its_aid)) {
         auto network = networks.select(channel);
         if (network) {
             btp::DataRequestB req;
@@ -78,57 +80,64 @@ void RevocationAuthorityService::generateAndSendCRL()
             req.gn.transport_type = geonet::TransportType::SHB;
             req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
             req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-            req.gn.its_aid = crl_its_aid;
+            req.gn.its_aid = heartbeat_its_aid;
 
-            CRLMessage* crlMessage = createAndPopulateCRL();
-            request(req, crlMessage, network.get());
-            std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
+            HBMessage* hbMessage = createAndPopulateHeartbeat();
+            request(req, hbMessage, network.get());
+            std::cout << "Heartbeat message sent. Revoked certificates: " << mMasterPRL.size() << std::endl;
         } else {
             std::cerr << "No network interface available for channel " << channel << std::endl;
         }
     }
 }
 
-CRLMessage* RevocationAuthorityService::createAndPopulateCRL()
+HBMessage* SelfRevocationAuthService::createAndPopulateHeartbeat()
 {
-    CRLMessage* crlMessage = new CRLMessage("CRL");
+    HBMessage* hbMessage = new HBMessage("Heartbeat");
 
-    crlMessage->setMTimestamp(omnetpp::simTime());
-    crlMessage->setMRevokedCertificatesArraySize(mMasterCRL.size());
+    hbMessage->setMTimestamp(omnetpp::simTime());
 
-    for (size_t i = 0; i < mMasterCRL.size(); ++i) {
-        crlMessage->setMRevokedCertificates(i, mMasterCRL[i]);
+    std::cout << "Creating heartbeat message at time: " << omnetpp::simTime().dbl() << std::endl;
+    std::cout << "Number of entries in mMasterPRL: " << mMasterPRL.size() << std::endl;
+
+    hbMessage->setPRLArraySize(mMasterPRL.size());
+
+    size_t index = 0;
+    for (const auto& entry : mMasterPRL) {
+        std::cout << "Adding PRL entry at index " << index << std::endl;
+        hbMessage->setPRL(index, entry.first);
+        index++;
     }
 
-    crlMessage->setMSignerCertificate(mRootCert);
+    hbMessage->setMSignerCertificate(mRootCert);
 
     if (mBackend) {
         vanetza::ByteBuffer dataToSign;
 
-        uint64_t timestamp = static_cast<uint64_t>(crlMessage->getMTimestamp().dbl() * 1e9);
+        uint64_t timestamp = static_cast<uint64_t>(hbMessage->getMTimestamp().dbl() * 1e9);
         dataToSign.insert(dataToSign.end(), reinterpret_cast<uint8_t*>(&timestamp), reinterpret_cast<uint8_t*>(&timestamp) + sizeof(timestamp));
 
-        for (size_t i = 0; i < crlMessage->getMRevokedCertificatesArraySize(); ++i) {
-            auto& hash = crlMessage->getMRevokedCertificates(i);
+        for (size_t i = 0; i < hbMessage->getPRLArraySize(); ++i) {
+            auto& hash = hbMessage->getPRL(i);
             dataToSign.insert(dataToSign.end(), hash.data(), hash.data() + hash.size());
         }
 
-        vanetza::ByteBuffer serializedCert = vanetza::security::convert_for_signing(crlMessage->getMSignerCertificate());
+        vanetza::ByteBuffer serializedCert = vanetza::security::convert_for_signing(hbMessage->getMSignerCertificate());
         dataToSign.insert(dataToSign.end(), serializedCert.begin(), serializedCert.end());
 
         vanetza::security::EcdsaSignature ecdsaSignature = mBackend->sign_data(mKeyPair.private_key, dataToSign);
-        crlMessage->setMSignature(ecdsaSignature);
+        hbMessage->setMSignature(ecdsaSignature);
     } else {
         std::cerr << "Error: BackendCryptoPP is nullptr" << std::endl;
     }
 
-    return crlMessage;
+    return hbMessage;
 }
 
-void RevocationAuthorityService::revokeRandomCertificate()
+void SelfRevocationAuthService::revokeRandomCertificate()
 {
     if (mIssuedCertificates.empty()) {
-        return;  // No certificates to revoke
+        return;
     }
 
     // Select a random certificate
@@ -138,34 +147,31 @@ void RevocationAuthorityService::revokeRandomCertificate()
     // Calculate the hash of the certificate
     vanetza::security::HashedId8 hashedId = calculate_hash(it->second);
 
-    // Add the hash to the master CRL if it's not already there
-    if (std::find(mMasterCRL.begin(), mMasterCRL.end(), hashedId) == mMasterCRL.end()) {
-        mMasterCRL.push_back(hashedId);
+    // Add the hash to the master PRL if it's not already there
+    if (mMasterPRL.find(hashedId) == mMasterPRL.end()) {
+        mMasterPRL[hashedId] = simTime().dbl();
     }
 
-    std::string vehicleId = it->first;  // Get the vehicle ID
+    std::string vehicleId = it->first;
 
-    // Remove the certificate from mIssuedCertificates
     mIssuedCertificates.erase(it);
 
     std::cout << "=== REVOCATION EVENT ===" << std::endl;
     std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
-    std::cout << "Master CRL size: " << mMasterCRL.size() << std::endl;
+    std::cout << "Master PRL size: " << mMasterPRL.size() << std::endl;
     std::cout << "========================" << std::endl;
 }
 
-std::vector<vanetza::security::Certificate> RevocationAuthorityService::generateDummyRevokedCertificates(size_t count)
+void SelfRevocationAuthService::removeExpiredRevocations()
 {
-    std::vector<vanetza::security::Certificate> revokedCerts;
-
-    vanetza::security::ecdsa256::KeyPair dummyKeyPair = GenerateKey();
-
-    for (size_t i = 0; i < count; ++i) {
-        vanetza::security::Certificate dummyCert = GenerateRoot(dummyKeyPair);
-        revokedCerts.push_back(dummyCert);
+    auto currentTime = simTime().dbl();
+    auto it = mMasterPRL.begin();
+    while (it != mMasterPRL.end()) {
+        if (currentTime - it->second > mTeff) {
+            std::cout << "Removing expired revocation from PRL" << std::endl;
+            it = mMasterPRL.erase(it);
+        } else {
+            ++it;
+        }
     }
-
-    return revokedCerts;
 }
-
-// namespace artery
