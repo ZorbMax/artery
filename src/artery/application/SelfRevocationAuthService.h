@@ -4,6 +4,7 @@
 #include "CentralAuthService.h"
 #include "HBMessage_m.h"
 #include "SelfRevocationMetrics.h"
+#include "Logger.h"
 
 #include <map>
 
@@ -25,7 +26,6 @@ private:
     HBMessage* createAndPopulateHeartbeat();
     void generateAndSendHeartbeat();
     void removeExpiredRevocations();
-    std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<SelfRevocationMetrics> mMetrics;
     std::set<std::string> mActiveVehicles;

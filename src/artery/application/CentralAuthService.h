@@ -1,8 +1,8 @@
 #ifndef CENTRAL_AUTH_SERVICE_H
 #define CENTRAL_AUTH_SERVICE_H
 
-#include "PseudonymMessageHandler.h"
 #include "EnrollmentRequest_m.h"
+#include "PseudonymMessageHandler.h"
 #include "artery/application/ItsG5BaseService.h"
 #include "artery/application/ItsG5Service.h"
 #include "vanetza/security/backend.hpp"
@@ -31,6 +31,7 @@ protected:
     virtual void handleEnrollmentRequest(EnrollmentRequest* request);
     virtual void sendPseudonymCertificate(
         vanetza::security::Certificate& pseudoCert, vanetza::security::ecdsa256::PublicKey& publicKey, std::string& vehicleId);
+    std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
     virtual void recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert) {}
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;

@@ -85,27 +85,20 @@ void SelfRevocationMetrics::printMetrics() const
 void SelfRevocationMetrics::exportToCSV(const std::string& baseFilename) const
 {
     // Certificate events CSV
-    std::ofstream certFile(baseFilename + "_certificates.csv");
-    certFile << "Simulation Time,Event Type,HashedId8\n";
-    for (const auto& event : certificateEvents) {
-        certFile << event.issuanceTime << ",CertificateIssuance," << convertToHexString(event.hashedId) << "\n";
-        if (event.revoked) {
-            certFile << event.revocationTime << ",Revocation," << convertToHexString(event.hashedId) << "\n";
-        }
-    }
+    // std::ofstream certFile("certificates.csv");
+    // certFile << "Simulation Time,Event Type,HashedId8\n";
+    // for (const auto& event : certificateEvents) {
+    //     certFile << event.issuanceTime << ",CertificateIssuance," << convertToHexString(event.hashedId) << "\n";
+    //     if (event.revoked) {
+    //         certFile << event.revocationTime << ",Revocation," << convertToHexString(event.hashedId) << "\n";
+    //     }
+    // }
 
     // Heartbeat messages CSV
-    std::ofstream heartbeatFile(baseFilename + "_heartbeats.csv");
+    std::ofstream heartbeatFile("heartbeats.csv");
     heartbeatFile << "Simulation Time,Message Size\n";
     for (const auto& msg : heartbeatMessages) {
         heartbeatFile << msg.time << "," << msg.size << "\n";
-    }
-
-    // Active vehicle counts CSV
-    std::ofstream vehicleFile(baseFilename + "_active_vehicles.csv");
-    vehicleFile << "Simulation Time,Active Vehicles\n";
-    for (const auto& entry : activeVehicleCounts) {
-        vehicleFile << entry.first << "," << entry.second << "\n";
     }
 }
 

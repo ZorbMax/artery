@@ -1,6 +1,7 @@
 #ifndef VEHICLE_CRLSERVICE_H
 #define VEHICLE_CRLSERVICE_H
 
+#include "Logger.h"
 #include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
 #include "CertificateManager.h"
@@ -34,6 +35,7 @@ private:
     void discardMessage(omnetpp::cPacket* packet);
     void trigger() override;
     void sendEnrollmentRequest();
+    std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;

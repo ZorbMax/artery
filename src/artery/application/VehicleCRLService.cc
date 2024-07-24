@@ -126,6 +126,8 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, cPacke
                 std::cout << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl;
                 std::cout << "=========================" << std::endl;
 
+                Logger::log("MESSAGE_DISCARDED," + std::to_string(simTime().dbl()) + "," + convertToHexString(certHash));
+
                 discardMessage(v2vMessage);
                 return;
             }
@@ -285,6 +287,16 @@ void VehicleCRLService::handleMessage(cMessage* msg)
     } else {
         ItsG5Service::handleMessage(msg);
     }
+}
+
+std::string VehicleCRLService::convertToHexString(const vanetza::security::HashedId8& hashedId)
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t byte : hashedId) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
 }
 
 // namespace artery

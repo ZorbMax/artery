@@ -40,13 +40,16 @@ void SelfRevocationAuthService::initialize()
     CentralAuthService::initialize();
 
     mMetrics.reset(new SelfRevocationMetrics());
-    mHeartbeatInterval = 1.5;
+    mHeartbeatInterval = 3.0;
     mRevocationInterval = 8.0;
     mTv = 50.0;  // validity window
     mTeff = 2 * mTv;
 
     scheduleAt(simTime() + mHeartbeatInterval, new cMessage("triggerHeartbeat"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
+
+    Logger::init("simulation_log.txt");
+    Logger::log("Simulation started, logger initialized");
 
     // Record initial active vehicle count
     mMetrics->recordActiveVehicleCount(mIssuedCertificates.size(), simTime().dbl());
@@ -55,6 +58,9 @@ void SelfRevocationAuthService::initialize()
 void SelfRevocationAuthService::finish()
 {
     CentralAuthService::finish();
+
+    Logger::log("Simulation ended, closing logger");
+    Logger::close();
 
     std::string filename = "self_revocation_metrics_" + std::to_string(getParentModule()->getId()) + ".csv";
     mMetrics->exportToCSV(filename);
@@ -166,9 +172,9 @@ void SelfRevocationAuthService::revokeRandomCertificate()
 
     // Check if revocation rate is already at or above 30%
     if (currentRevocationRate >= 0.30) {
-        std::cout << "=== REVOCATION SKIPPED ===" << std::endl;
-        std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "% (max 30%)" << std::endl;
-        std::cout << "========================" << std::endl;
+        // std::cout << "=== REVOCATION SKIPPED ===" << std::endl;
+        // std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "% (max 30%)" << std::endl;
+        // std::cout << "========================" << std::endl;
         return;
     }
 
@@ -183,6 +189,7 @@ void SelfRevocationAuthService::revokeRandomCertificate()
     if (mMasterPRL.find(hashedId) == mMasterPRL.end()) {
         mMasterPRL[hashedId] = simTime().dbl();
         mMetrics->recordRevocation(hashedId, simTime().dbl());
+        Logger::log("PRL_ADD," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId));
     }
 
     std::string vehicleId = it->first;
@@ -195,22 +202,12 @@ void SelfRevocationAuthService::revokeRandomCertificate()
     // Calculate new revocation rate
     currentRevocationRate = static_cast<double>(mMasterPRL.size()) / totalCertificates;
 
-    std::cout << "=== REVOCATION EVENT ===" << std::endl;
-    std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
-    std::cout << "Master PRL size: " << mMasterPRL.size() << std::endl;
-    std::cout << "Active vehicles: " << mActiveVehicles.size() << std::endl;
-    std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "%" << std::endl;
-    std::cout << "========================" << std::endl;
-}
-
-std::string SelfRevocationAuthService::convertToHexString(const vanetza::security::HashedId8& hashedId)
-{
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (uint8_t byte : hashedId) {
-        ss << std::setw(2) << static_cast<int>(byte);
-    }
-    return ss.str();
+    // std::cout << "=== REVOCATION EVENT ===" << std::endl;
+    // std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
+    // std::cout << "Master PRL size: " << mMasterPRL.size() << std::endl;
+    // std::cout << "Active vehicles: " << mActiveVehicles.size() << std::endl;
+    // std::cout << "Current revocation rate: " << (currentRevocationRate * 100) << "%" << std::endl;
+    // std::cout << "========================" << std::endl;
 }
 
 void SelfRevocationAuthService::removeExpiredRevocations()
@@ -219,28 +216,28 @@ void SelfRevocationAuthService::removeExpiredRevocations()
     auto it = mMasterPRL.begin();
     int removedCount = 0;
 
-    std::cout << "\n=== REMOVING EXPIRED REVOCATIONS ===" << std::endl;
-    std::cout << "Current time: " << currentTime << std::endl;
+    // std::cout << "\n=== REMOVING EXPIRED REVOCATIONS ===" << std::endl;
+    // std::cout << "Current time: " << currentTime << std::endl;
 
     while (it != mMasterPRL.end()) {
         double entryAge = currentTime - it->second;
 
-        std::cout << "Entry: " << convertToHexString(it->first) << std::endl;
-        std::cout << "  Condition: " << entryAge << " > " << mTeff;
+        // std::cout << "Entry: " << convertToHexString(it->first) << std::endl;
+        // std::cout << "  Condition: " << entryAge << " > " << mTeff;
 
         if (entryAge > mTeff) {
-            std::cout << " (Removing)" << std::endl;
+            // std::cout << " (Removing)" << std::endl;
             it = mMasterPRL.erase(it);
             removedCount++;
         } else {
-            std::cout << " (Keeping)" << std::endl;
+            // std::cout << " (Keeping)" << std::endl;
             ++it;
         }
     }
 
-    std::cout << "Total revocations removed: " << removedCount << std::endl;
-    std::cout << "Remaining entries in PRL: " << mMasterPRL.size() << std::endl;
-    std::cout << "===================================\n" << std::endl;
+    // std::cout << "Total revocations removed: " << removedCount << std::endl;
+    // std::cout << "Remaining entries in PRL: " << mMasterPRL.size() << std::endl;
+    // std::cout << "===================================\n" << std::endl;
 }
 
 void SelfRevocationAuthService::recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert)

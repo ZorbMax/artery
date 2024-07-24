@@ -2,8 +2,11 @@ add_library(artery INTERFACE)
 add_library(core SHARED
     StaticNodeManager.cc
     application/SelfRevocationMetrics.cc
+    application/ActiveRevocationMetrics.cc
+    application/Logger.cc
     application/CentralAuthService.cc
     application/SelfRevocationAuthService.cc
+    application/RevocationAuthorityService.cc
     application/VehicleCRLService.cc
     application/VehicleHBService.cc
     application/CRLMessage_m.cc

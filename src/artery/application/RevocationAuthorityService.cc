@@ -40,10 +40,27 @@ void RevocationAuthorityService::initialize()
 {
     CentralAuthService::initialize();
 
-    mCrlGenInterval = 1.0;
+    Logger::init("active_revocations.txt");
+    Logger::log("Simulation started, logger initialized");
+
+    mMetrics = std::unique_ptr<ActiveRevocationMetrics>(new ActiveRevocationMetrics());
+    mCrlGenInterval = 10.0;
+    mRevocationInterval = 8.0;
 
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
+}
+
+void RevocationAuthorityService::finish()
+{
+    CentralAuthService::finish();
+
+    Logger::log("Simulation ended, closing logger");
+    Logger::close();
+
+    std::string filename = "active_revocation_crl.csv";
+    mMetrics->exportToCSV(filename);
+    mMetrics->printMetrics();
 }
 
 void RevocationAuthorityService::handleMessage(cMessage* msg)
@@ -82,6 +99,10 @@ void RevocationAuthorityService::generateAndSendCRL()
 
             CRLMessage* crlMessage = createAndPopulateCRL();
             request(req, crlMessage, network.get());
+
+            size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
+            mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
+
             std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
         } else {
             std::cerr << "No network interface available for channel " << channel << std::endl;
@@ -152,6 +173,11 @@ void RevocationAuthorityService::revokeRandomCertificate()
     std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
     std::cout << "Master CRL size: " << mMasterCRL.size() << std::endl;
     std::cout << "========================" << std::endl;
+
+    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
+
+    std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
+    Logger::log(logEntry);
 }
 
 std::vector<vanetza::security::Certificate> RevocationAuthorityService::generateDummyRevokedCertificates(size_t count)

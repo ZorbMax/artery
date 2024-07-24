@@ -61,11 +61,9 @@ void VehicleHBService::initialize()
     enrolled = false;
     mIsRevoked = false;
     mInternalClock = simTime().dbl();
-    mTv = 20.0;  // validity window
-    mLastActionTime = simTime();
-    mActionInterval = 2;
+    mTv = 50.0;  // validity window
 
-    scheduleAt(simTime() + 1, new cMessage("triggerEvent"));
+    // scheduleAt(simTime() + 1, new cMessage("triggerEvent"));
     std::cout << "VehicleHBService initialized." << std::endl;
 }
 
@@ -164,7 +162,7 @@ void VehicleHBService::handleHBMessage(HBMessage* heartbeatMessage)
         double oldClock = mInternalClock;
         mInternalClock = std::max(mInternalClock, heartbeatTimestamp);
 
-        std::cout << "Internal clock updated from " << oldClock << " to " << mInternalClock << std::endl;
+        // std::cout << "Internal clock updated from " << oldClock << " to " << mInternalClock << std::endl;
 
         const auto prlSize = heartbeatMessage->getPRLArraySize();
         // std::cout << "PRL size: " << prlSize << std::endl;
@@ -179,10 +177,11 @@ void VehicleHBService::handleHBMessage(HBMessage* heartbeatMessage)
             if (revokedId == ownHash) {
                 // std::cout << "Match found! Performing self-revocation." << std::endl;
                 performSelfRevocation();
+                Logger::log("SELF_REVOKE," + std::to_string(simTime().dbl()) + "," + hashedId8ToHexString(ownHash));
                 return;
             }
         }
-        std::cout << "No matching revoked ID found in PRL." << std::endl;
+        // std::cout << "No matching revoked ID found in PRL." << std::endl;
     } else {
         std::cout << "Received outdated heartbeat message. Ignoring." << std::endl;
     }
@@ -191,7 +190,7 @@ void VehicleHBService::handleHBMessage(HBMessage* heartbeatMessage)
 void VehicleHBService::handleV2VMessage(V2VMessage* v2vMessage)
 {
     if (!enrolled) {
-        // std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
+        std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
         delete v2vMessage;
         return;
     }
@@ -206,6 +205,12 @@ void VehicleHBService::handleV2VMessage(V2VMessage* v2vMessage)
     const vanetza::security::Certificate& cert = v2vMessage->getCertificate();
     if (!mCertificateManager->verifyCertificate(cert)) {
         std::cout << "Invalid certificate. Dropping message." << std::endl;
+        delete v2vMessage;
+        return;
+    }
+
+    if (!mV2VHandler) {
+        std::cerr << "mV2VHandler is null" << std::endl;
         delete v2vMessage;
         return;
     }
@@ -232,12 +237,13 @@ void VehicleHBService::checkAutomaticRevocation(simtime_t messageTimestamp)
 
 void VehicleHBService::performSelfRevocation()
 {
-    if (!mIsRevoked) {
-        mIsRevoked = true;
+    bool expected = false;
+    if (mIsRevoked.compare_exchange_strong(expected, true)) {
+        // This block will only execute if mIsRevoked was false and is now set to true
         auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+
         std::cout << "Vehicle " << vehicle.getVehicleId() << " has been self-revoked." << std::endl;
 
-        // Clear credentials
         mPseudonymCertificate = vanetza::security::Certificate();
         mV2VHandler.reset();
     }
@@ -251,68 +257,67 @@ void VehicleHBService::trigger()
     auto& vehicle = getFacilities().get_const<traci::VehicleController>();
     std::string id = vehicle.getVehicleId();
 
-    if (mIsRevoked) {
+    if (mIsRevoked.load()) {
         // std::cout << "Vehicle " + id + " is revoked. Not sending any messages." << std::endl;
         return;
     }
 
-    if (simTime() - mLastActionTime >= mActionInterval) {
-        if (!enrollmentRequestSent) {
-            EnrollmentRequest* enrollmentRequest = new EnrollmentRequest();
-            enrollmentRequest->setVehicleId(id.c_str());
-            enrollmentRequest->setPublicKey(mKeyPair.public_key);
+    // if (simTime() - mLastActionTime >= mActionInterval) {
+    if (!enrollmentRequestSent) {
+        EnrollmentRequest* enrollmentRequest = new EnrollmentRequest();
+        enrollmentRequest->setVehicleId(id.c_str());
+        enrollmentRequest->setPublicKey(mKeyPair.public_key);
 
-            static const vanetza::ItsAid enrollment_its_aid = 622;
-            auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-            auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+        static const vanetza::ItsAid enrollment_its_aid = 622;
+        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-            for (auto channel : mco.allChannels(enrollment_its_aid)) {
-                auto network = networks.select(channel);
-                if (network) {
-                    btp::DataRequestB req;
-                    req.destination_port = host_cast(getPortNumber(channel));
-                    req.gn.transport_type = geonet::TransportType::SHB;
-                    req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-                    req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-                    req.gn.its_aid = enrollment_its_aid;
+        for (auto channel : mco.allChannels(enrollment_its_aid)) {
+            auto network = networks.select(channel);
+            if (network) {
+                btp::DataRequestB req;
+                req.destination_port = host_cast(getPortNumber(channel));
+                req.gn.transport_type = geonet::TransportType::SHB;
+                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+                req.gn.its_aid = enrollment_its_aid;
 
-                    request(req, enrollmentRequest, network.get());
-                    std::cout << "Enrollment request sent from: " + id << std::endl;
-                } else {
-                    std::cerr << "No network interface available for channel " << channel << std::endl;
-                }
-            }
-
-            enrollmentRequestSent = true;
-        } else {
-            static const vanetza::ItsAid v2v_its_aid = 623;
-            auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-            auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
-
-            auto& vehicle = getFacilities().get_const<traci::VehicleController>();
-            std::string id = vehicle.getVehicleId();
-
-            for (auto channel : mco.allChannels(v2v_its_aid)) {
-                auto network = networks.select(channel);
-                if (network) {
-                    btp::DataRequestB req;
-                    req.destination_port = host_cast(getPortNumber(channel));
-                    req.gn.transport_type = geonet::TransportType::SHB;
-                    req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-                    req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-                    req.gn.its_aid = v2v_its_aid;
-
-                    V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
-                    v2vMessage->setCertificate(mPseudonymCertificate);
-                    request(req, v2vMessage, network.get());
-                    std::cout << "V2V message sent." << std::endl;
-                } else {
-                    std::cerr << "No network interface available for channel " << channel << std::endl;
-                }
+                request(req, enrollmentRequest, network.get());
+                std::cout << "Enrollment request sent from: " + id << std::endl;
+            } else {
+                std::cerr << "No network interface available for channel " << channel << std::endl;
             }
         }
-        mLastActionTime = simTime();
+
+        enrollmentRequestSent = true;
+    } else {
+        static const vanetza::ItsAid v2v_its_aid = 623;
+        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
+        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+
+        auto& vehicle = getFacilities().get_const<traci::VehicleController>();
+        std::string id = vehicle.getVehicleId();
+
+        for (auto channel : mco.allChannels(v2v_its_aid)) {
+            auto network = networks.select(channel);
+            if (network) {
+                btp::DataRequestB req;
+                req.destination_port = host_cast(getPortNumber(channel));
+                req.gn.transport_type = geonet::TransportType::SHB;
+                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+                req.gn.its_aid = v2v_its_aid;
+
+                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
+                v2vMessage->setCertificate(mPseudonymCertificate);
+                request(req, v2vMessage, network.get());
+                // std::cout << "V2V message sent." << std::endl;
+            } else {
+                std::cerr << "No network interface available for channel " << channel << std::endl;
+            }
+        }
     }
+    // mLastActionTime = simTime();
 }
 
 void VehicleHBService::handleMessage(cMessage* msg)

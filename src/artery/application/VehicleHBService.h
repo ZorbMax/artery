@@ -5,6 +5,7 @@
 #include "HBMessageHandler.h"
 #include "HBMessage_m.h"
 #include "ItsG5Service.h"
+#include "Logger.h"
 #include "PseudonymMessageHandler.h"
 #include "PseudonymMessage_m.h"
 #include "V2VMessageHandler.h"
@@ -28,11 +29,9 @@ protected:
 private:
     bool enrollmentRequestSent;
     bool enrolled;
-    bool mIsRevoked;
+    std::atomic<bool> mIsRevoked{false};  // Use std::atomic for thread-safe boolean, this was a sim breaking bug.
     double mInternalClock;
     double mTv;
-    omnetpp::simtime_t mLastActionTime;
-    omnetpp::simtime_t mActionInterval;
 
     void handleHBMessage(HBMessage* heartbeatMessage);
     void handlePseudonymMessage(PseudonymMessage* pseudonymMessage);

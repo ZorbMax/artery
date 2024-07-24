@@ -96,4 +96,14 @@ void CentralAuthService::sendPseudonymCertificate(
     }
 }
 
+std::string CentralAuthService::convertToHexString(const vanetza::security::HashedId8& hashedId)
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t byte : hashedId) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
+}
+
 }  // namespace artery
