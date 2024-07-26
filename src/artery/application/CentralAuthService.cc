@@ -74,26 +74,17 @@ void CentralAuthService::sendPseudonymCertificate(
 
     PseudonymMessage* pseudonymMessage = mPseudonymHandler->createPseudonymMessage(pseudoCert, publicKey, vehicleId);
 
-    static const vanetza::ItsAid pseudonym_its_aid = 623;
-    auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-    auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+    static const vanetza::ItsAid pseudonym_its_aid = 1;
 
-    for (auto channel : mco.allChannels(pseudonym_its_aid)) {
-        auto network = networks.select(channel);
-        if (network) {
-            btp::DataRequestB req;
-            req.destination_port = host_cast(getPortNumber(channel));
-            req.gn.transport_type = geonet::TransportType::SHB;
-            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-            req.gn.its_aid = pseudonym_its_aid;
+    btp::DataRequestB req;
+    req.destination_port = host_cast(getPortNumber());
+    req.gn.transport_type = geonet::TransportType::SHB;
+    req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+    req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+    req.gn.its_aid = pseudonym_its_aid;
 
-            request(req, pseudonymMessage, network.get());
-            std::cout << "Pseudonym certificate sent for vehicle " << vehicleId << std::endl;
-        } else {
-            std::cerr << "No network interface available for channel " << channel << std::endl;
-        }
-    }
+    request(req, pseudonymMessage);
+    std::cout << "Pseudonym certificate sent for vehicle " << vehicleId << std::endl;
 }
 
 std::string CentralAuthService::convertToHexString(const vanetza::security::HashedId8& hashedId)

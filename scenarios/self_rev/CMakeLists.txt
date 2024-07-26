@@ -1,0 +1,1 @@
+add_opp_run(self_rev CONFIG omnetpp.ini)

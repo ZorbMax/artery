@@ -44,7 +44,7 @@ void RevocationAuthorityService::initialize()
     Logger::log("Simulation started, logger initialized");
 
     mMetrics = std::unique_ptr<ActiveRevocationMetrics>(new ActiveRevocationMetrics());
-    mCrlGenInterval = 10.0;
+    mCrlGenInterval = 3.0;
     mRevocationInterval = 8.0;
 
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
@@ -84,30 +84,21 @@ void RevocationAuthorityService::generateAndSendCRL()
     using namespace vanetza;
 
     static const vanetza::ItsAid crl_its_aid = 622;
-    auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-    auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
 
-    for (auto channel : mco.allChannels(crl_its_aid)) {
-        auto network = networks.select(channel);
-        if (network) {
-            btp::DataRequestB req;
-            req.destination_port = host_cast(getPortNumber(channel));
-            req.gn.transport_type = geonet::TransportType::SHB;
-            req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-            req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-            req.gn.its_aid = crl_its_aid;
+    btp::DataRequestB req;
+    req.destination_port = host_cast(getPortNumber());
+    req.gn.transport_type = geonet::TransportType::SHB;
+    req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+    req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+    req.gn.its_aid = crl_its_aid;
 
-            CRLMessage* crlMessage = createAndPopulateCRL();
-            request(req, crlMessage, network.get());
+    CRLMessage* crlMessage = createAndPopulateCRL();
+    request(req, crlMessage);
 
-            size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
-            mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
+    size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
+    mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
 
-            std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
-        } else {
-            std::cerr << "No network interface available for channel " << channel << std::endl;
-        }
-    }
+    std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
 }
 
 CRLMessage* RevocationAuthorityService::createAndPopulateCRL()

@@ -224,60 +224,41 @@ void VehicleCRLService::trigger()
         enrollmentRequest->setPublicKey(mKeyPair.public_key);
 
         // Send the enrollment request to the CA
-        static const vanetza::ItsAid enrollment_its_aid = 622;
-        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+        static const vanetza::ItsAid enrollment_its_aid = 2;
 
-        for (auto channel : mco.allChannels(enrollment_its_aid)) {
-            auto network = networks.select(channel);
-            if (network) {
-                btp::DataRequestB req;
-                req.destination_port = host_cast(getPortNumber(channel));
-                req.gn.transport_type = geonet::TransportType::SHB;
-                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-                req.gn.its_aid = enrollment_its_aid;
+        btp::DataRequestB req;
+        req.destination_port = host_cast(getPortNumber());
+        req.gn.transport_type = geonet::TransportType::SHB;
+        req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+        req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+        req.gn.its_aid = enrollment_its_aid;
 
-                request(req, enrollmentRequest, network.get());
-                std::cout << "Enrollment request sent from: " + id << std::endl;
-            } else {
-                std::cerr << "No network interface available for channel " << channel << std::endl;
-            }
-        }
+        request(req, enrollmentRequest);
+        std::cout << "Enrollment request sent from: " + id << std::endl;
 
         enrollmentRequestSent = true;
     } else {
-        static const vanetza::ItsAid v2v_its_aid = 623;
-        auto& mco = getFacilities().get_const<MultiChannelPolicy>();
-        auto& networks = getFacilities().get_const<NetworkInterfaceTable>();
+        static const vanetza::ItsAid v2v_its_aid = 36;
 
         auto& vehicle = getFacilities().get_const<traci::VehicleController>();
         std::string id = vehicle.getVehicleId();
 
-        for (auto channel : mco.allChannels(v2v_its_aid)) {
-            auto network = networks.select(channel);
-            if (network) {
-                btp::DataRequestB req;
-                req.destination_port = host_cast(getPortNumber(channel));
-                req.gn.transport_type = geonet::TransportType::SHB;
-                req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-                req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-                req.gn.its_aid = v2v_its_aid;
+        btp::DataRequestB req;
+        req.destination_port = host_cast(getPortNumber());
+        req.gn.transport_type = geonet::TransportType::SHB;
+        req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
+        req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
+        req.gn.its_aid = v2v_its_aid;
 
-                V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
-                v2vMessage->setCertificate(mPseudonymCertificate);
-                request(req, v2vMessage, network.get());
-                std::cout << "V2V message sent." << std::endl;
-            } else {
-                std::cerr << "No network interface available for channel " << channel << std::endl;
-            }
-        }
+        V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
+        v2vMessage->setCertificate(mPseudonymCertificate);
+        request(req, v2vMessage);
+        std::cout << "V2V message sent." << std::endl;
     }
 
     // Schedule the next trigger
     scheduleAt(simTime() + 200.0, new cMessage("triggerEvent"));
 }
-}  // namespace artery
 
 void VehicleCRLService::handleMessage(cMessage* msg)
 {
@@ -299,4 +280,4 @@ std::string VehicleCRLService::convertToHexString(const vanetza::security::Hashe
     return ss.str();
 }
 
-// namespace artery
+}  // namespace artery
