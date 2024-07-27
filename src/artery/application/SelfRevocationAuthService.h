@@ -3,8 +3,8 @@
 
 #include "CentralAuthService.h"
 #include "HBMessage_m.h"
-#include "SelfRevocationMetrics.h"
 #include "Logger.h"
+#include "SelfRevocationMetrics.h"
 
 #include <map>
 
@@ -15,25 +15,27 @@ class SelfRevocationAuthService : public CentralAuthService
 {
 public:
     void initialize() override;
-    void handleMessage(omnetpp::cMessage* msg) override;
     void finish() override;
+    void handleMessage(omnetpp::cMessage* msg) override;
 
 protected:
-    void revokeRandomCertificate() override;
-    void recordCertificateIssuance(const std::string& vehicleId, const vanetza::security::Certificate& cert) override;
-
-private:
-    HBMessage* createAndPopulateHeartbeat();
     void generateAndSendHeartbeat();
+    HBMessage* createAndPopulateHeartbeat();
+    void revokeRandomCertificate() override;
     void removeExpiredRevocations();
 
+private:
     std::unique_ptr<SelfRevocationMetrics> mMetrics;
-    std::set<std::string> mActiveVehicles;
     std::map<vanetza::security::HashedId8, double> mMasterPRL;
-    double mHeartbeatInterval;
+    std::set<std::string> mActiveVehicles;
+
     double mTv;
     double mTeff;
-    omnetpp::cMessage* mTriggerMessage;
+    omnetpp::simtime_t mHeartbeatInterval;
+    omnetpp::simtime_t mRevocationInterval;
+
+    static const double MAX_REVOCATION_RATE;
+    static const vanetza::ItsAid HB_ITS_AID = 622;
 };
 
 }  // namespace artery

@@ -36,6 +36,9 @@ using namespace vanetza;
 using namespace security;
 using namespace omnetpp;
 
+const double RevocationAuthorityService::MAX_REVOCATION_RATE = 0.30;
+const vanetza::ItsAid RevocationAuthorityService::CRL_ITS_AID = 622;
+
 void RevocationAuthorityService::initialize()
 {
     CentralAuthService::initialize();
@@ -44,8 +47,8 @@ void RevocationAuthorityService::initialize()
     Logger::log("Simulation started, logger initialized");
 
     mMetrics = std::unique_ptr<ActiveRevocationMetrics>(new ActiveRevocationMetrics());
-    mCrlGenInterval = 3.0;
-    mRevocationInterval = 8.0;
+    mCrlGenInterval = par("crlGenInterval");
+    mRevocationInterval = par("revocationInterval");
 
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
@@ -81,18 +84,15 @@ void RevocationAuthorityService::handleMessage(cMessage* msg)
 
 void RevocationAuthorityService::generateAndSendCRL()
 {
-    using namespace vanetza;
-
-    static const vanetza::ItsAid crl_its_aid = 622;
+    CRLMessage* crlMessage = createAndPopulateCRL();
 
     btp::DataRequestB req;
     req.destination_port = host_cast(getPortNumber());
     req.gn.transport_type = geonet::TransportType::SHB;
     req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
     req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-    req.gn.its_aid = crl_its_aid;
+    req.gn.its_aid = CRL_ITS_AID;
 
-    CRLMessage* crlMessage = createAndPopulateCRL();
     request(req, crlMessage);
 
     size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
@@ -104,7 +104,6 @@ void RevocationAuthorityService::generateAndSendCRL()
 CRLMessage* RevocationAuthorityService::createAndPopulateCRL()
 {
     CRLMessage* crlMessage = new CRLMessage("CRL");
-
     crlMessage->setMTimestamp(omnetpp::simTime());
     crlMessage->setMRevokedCertificatesArraySize(mMasterCRL.size());
 
@@ -140,49 +139,35 @@ CRLMessage* RevocationAuthorityService::createAndPopulateCRL()
 void RevocationAuthorityService::revokeRandomCertificate()
 {
     if (mIssuedCertificates.empty()) {
-        return;  // No certificates to revoke
+        return;
     }
 
-    // Select a random certificate
-    auto it = mIssuedCertificates.begin();
-    std::advance(it, rand() % mIssuedCertificates.size());
+    size_t totalCertificates = mIssuedCertificates.size() + mMasterCRL.size();
+    double currentRevocationRate = static_cast<double>(mMasterCRL.size()) / totalCertificates;
 
-    // Calculate the hash of the certificate
+    if (currentRevocationRate >= MAX_REVOCATION_RATE) {
+        std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
+        return;
+    }
+
+    auto it = mIssuedCertificates.begin();
+    std::advance(it, intrand(mIssuedCertificates.size()));
+
     vanetza::security::HashedId8 hashedId = calculate_hash(it->second);
 
-    // Add the hash to the master CRL if it's not already there
     if (std::find(mMasterCRL.begin(), mMasterCRL.end(), hashedId) == mMasterCRL.end()) {
         mMasterCRL.push_back(hashedId);
     }
 
-    std::string vehicleId = it->first;  // Get the vehicle ID
-
-    // Remove the certificate from mIssuedCertificates
+    std::string vehicleId = it->first;
     mIssuedCertificates.erase(it);
 
-    std::cout << "=== REVOCATION EVENT ===" << std::endl;
-    std::cout << "Vehicle " << vehicleId << " has been revoked." << std::endl;
-    std::cout << "Master CRL size: " << mMasterCRL.size() << std::endl;
-    std::cout << "========================" << std::endl;
+    std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mMasterCRL.size() << std::endl;
 
     mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
 
     std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
     Logger::log(logEntry);
-}
-
-std::vector<vanetza::security::Certificate> RevocationAuthorityService::generateDummyRevokedCertificates(size_t count)
-{
-    std::vector<vanetza::security::Certificate> revokedCerts;
-
-    vanetza::security::ecdsa256::KeyPair dummyKeyPair = GenerateKey();
-
-    for (size_t i = 0; i < count; ++i) {
-        vanetza::security::Certificate dummyCert = GenerateRoot(dummyKeyPair);
-        revokedCerts.push_back(dummyCert);
-    }
-
-    return revokedCerts;
 }
 
 // namespace artery

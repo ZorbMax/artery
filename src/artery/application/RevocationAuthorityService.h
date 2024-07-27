@@ -15,21 +15,23 @@ class RevocationAuthorityService : public CentralAuthService
 {
 public:
     void initialize() override;
-    void handleMessage(omnetpp::cMessage* msg) override;
     void finish() override;
+    void handleMessage(omnetpp::cMessage* msg) override;
 
 protected:
-    void revokeRandomCertificate() override;
-
-private:
     void generateAndSendCRL();
     CRLMessage* createAndPopulateCRL();
-    std::vector<vanetza::security::Certificate> generateDummyRevokedCertificates(size_t count);
+    void revokeRandomCertificate();
 
-    std::vector<vanetza::security::HashedId8> mMasterCRL;
-    double mCrlGenInterval;
-    omnetpp::cMessage* mTriggerMessage;
+private:
     std::unique_ptr<ActiveRevocationMetrics> mMetrics;
+    std::vector<vanetza::security::HashedId8> mMasterCRL;
+
+    omnetpp::simtime_t mCrlGenInterval;
+    omnetpp::simtime_t mRevocationInterval;
+
+    static const double MAX_REVOCATION_RATE;
+    static const vanetza::ItsAid CRL_ITS_AID;
 };
 
 }  // namespace artery

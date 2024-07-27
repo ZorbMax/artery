@@ -21,26 +21,21 @@ namespace artery
 
 class VehicleHBService : public ItsG5Service
 {
+public:
+    enum class VehicleState { NOT_ENROLLED, ENROLLMENT_REQUESTED, ENROLLED, REVOKED };
+
 protected:
     void initialize() override;
-    void handleMessage(omnetpp::cMessage* msg) override;
     void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net) override;
+    void trigger() override;
 
 private:
-    bool enrollmentRequestSent;
-    bool enrolled;
-    std::atomic<bool> mIsRevoked{false};  // Use std::atomic for thread-safe boolean, this was a sim breaking bug.
-    double mInternalClock;
-    double mTv;
-
-    void handleHBMessage(HBMessage* heartbeatMessage);
     void handlePseudonymMessage(PseudonymMessage* pseudonymMessage);
+    void handleHBMessage(HBMessage* heartbeatMessage);
     void handleV2VMessage(V2VMessage* v2vMessage);
-    void discardMessage(omnetpp::cPacket* packet);
-    void trigger() override;
-    void checkAutomaticRevocation(omnetpp::simtime_t messageTimestamp);
+    void checkDesynchronization(omnetpp::simtime_t messageTimestamp);
     void performSelfRevocation();
-    // void sendV2VMessage();
+    std::string hashedId8ToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
@@ -49,6 +44,13 @@ private:
     std::unique_ptr<V2VMessageHandler> mV2VHandler;
     std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
     std::unique_ptr<HBMessageHandler> mHBHandler;
+
+    VehicleState mState;
+    double mInternalClock;
+    double mTv;
+
+    static const vanetza::ItsAid ENROLLMENT_ITS_AID;
+    static const vanetza::ItsAid V2V_ITS_AID;
 };
 
 }  // namespace artery

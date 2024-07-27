@@ -84,6 +84,24 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
     delete packet;
 }
 
+void VehicleCRLService::trigger()
+{
+    Enter_Method("trigger");
+
+    switch (mState) {
+        case VehicleState::NOT_ENROLLED:
+            sendEnrollmentRequest();
+            mState = VehicleState::ENROLLMENT_REQUESTED;
+            break;
+        case VehicleState::ENROLLED:
+            sendV2VMessage();
+            break;
+        default:
+            // Do nothing while waiting for enrollment response
+            break;
+    }
+}
+
 void VehicleCRLService::handleCRLMessage(CRLMessage* crlMessage)
 {
     if (!mCRLHandler->verifyCRLSignature(crlMessage)) {
@@ -160,24 +178,6 @@ void VehicleCRLService::updateLocalCRL(const std::vector<vanetza::security::Hash
 bool VehicleCRLService::isRevoked(const vanetza::security::HashedId8& certificateHash) const
 {
     return std::binary_search(mLocalCRL.begin(), mLocalCRL.end(), certificateHash);
-}
-
-void VehicleCRLService::trigger()
-{
-    Enter_Method("trigger");
-
-    switch (mState) {
-        case VehicleState::NOT_ENROLLED:
-            sendEnrollmentRequest();
-            mState = VehicleState::ENROLLMENT_REQUESTED;
-            break;
-        case VehicleState::ENROLLED:
-            sendV2VMessage();
-            break;
-        default:
-            // Do nothing while waiting for enrollment response
-            break;
-    }
 }
 
 void VehicleCRLService::sendEnrollmentRequest()
