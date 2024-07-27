@@ -4,7 +4,6 @@
 #include "Logger.h"
 #include "CRLMessageHandler.h"
 #include "CRLMessage_m.h"
-#include "CertificateManager.h"
 #include "ItsG5Service.h"
 #include "PseudonymMessageHandler.h"
 #include "PseudonymMessage_m.h"
@@ -21,29 +20,41 @@ namespace artery
 
 class VehicleCRLService : public ItsG5Service
 {
+public:
+    enum class VehicleState {
+        NOT_ENROLLED,
+        ENROLLMENT_REQUESTED,
+        ENROLLED
+    };
+
 protected:
-    virtual void initialize() override;
-    virtual void handleMessage(omnetpp::cMessage* msg) override;
-    virtual void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net) override;
+    void initialize() override;
+    void indicate(const vanetza::btp::DataIndication& ind, omnetpp::cPacket* packet, const NetworkInterface& net) override;
+    void trigger() override;
+    void handleMessage(omnetpp::cMessage* msg) override;
 
 private:
-    bool enrollmentRequestSent;
-    bool enrolled;
     void handleCRLMessage(CRLMessage* crlMessage);
     void handlePseudonymMessage(PseudonymMessage* pseudonymMessage);
     void handleV2VMessage(V2VMessage* v2vMessage);
-    void discardMessage(omnetpp::cPacket* packet);
-    void trigger() override;
+    void updateLocalCRL(const std::vector<vanetza::security::HashedId8>& revokedCertificates);
+    bool isRevoked(const vanetza::security::HashedId8& certificateHash) const;
     void sendEnrollmentRequest();
+    void sendV2VMessage();
     std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
     vanetza::security::Certificate mPseudonymCertificate;
-    std::unique_ptr<CertificateManager> mCertificateManager;
     std::unique_ptr<CRLMessageHandler> mCRLHandler;
     std::unique_ptr<V2VMessageHandler> mV2VHandler;
     std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
+    
+    VehicleState mState = VehicleState::NOT_ENROLLED;
+    std::vector<vanetza::security::HashedId8> mLocalCRL;
+
+    static const vanetza::ItsAid ENROLLMENT_ITS_AID;
+    static const vanetza::ItsAid V2V_ITS_AID;
 };
 
 }  // namespace artery
