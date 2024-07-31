@@ -1,0 +1,5 @@
+<services>
+    <service type="artery.application.VehiclePassiveService">
+        <listener port="2020"/>
+    </service>
+</services>

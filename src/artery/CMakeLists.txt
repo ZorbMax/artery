@@ -5,9 +5,11 @@ add_library(core SHARED
     application/ActiveRevocationMetrics.cc
     application/Logger.cc
     application/CentralAuthService.cc
+    application/PseudoAuthService.cc
     application/SelfRevocationAuthService.cc
     application/RevocationAuthorityService.cc
     application/VehicleCRLService.cc
+    application/VehiclePassiveService.cc
     application/VehicleHBService.cc
     application/CRLMessage_m.cc
     application/HBMessage_m.cc
