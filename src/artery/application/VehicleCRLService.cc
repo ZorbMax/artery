@@ -72,6 +72,7 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
         handleCRLMessage(crlMessage);
     } else if (auto* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet)) {
         if (mState == VehicleState::ENROLLED) {
+            delete pseudonymMessage;
             return;
         }
         handlePseudonymMessage(pseudonymMessage);
@@ -140,6 +141,8 @@ void VehicleCRLService::handlePseudonymMessage(PseudonymMessage* pseudonymMessag
 
 void VehicleCRLService::handleV2VMessage(V2VMessage* v2vMessage)
 {
+    simtime_t startTime = simTime();
+
     if (mState != VehicleState::ENROLLED) {
         std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
         return;
@@ -157,6 +160,9 @@ void VehicleCRLService::handleV2VMessage(V2VMessage* v2vMessage)
                   << "Receiving vehicle: " << receiverId << std::endl
                   << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl
                   << "=========================" << std::endl;
+
+        std::string logEntry = "MESSSAGE_DISCARDED," + std::to_string(simTime().dbl()) + "," + convertToHexString(certHash);
+        Logger::log(logEntry);
     }
 
     if (!mV2VHandler->verifyV2VSignature(v2vMessage)) {

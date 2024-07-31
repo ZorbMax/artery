@@ -36,7 +36,7 @@ void CentralAuthService::initialize()
 void CentralAuthService::indicate(const vanetza::btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
-
+    //std::cout << "hello indiciate" << std::endl;
     if (packet) {
         EnrollmentRequest* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(packet);
         if (enrollmentRequest) {

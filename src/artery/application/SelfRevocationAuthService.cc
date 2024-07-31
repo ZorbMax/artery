@@ -81,6 +81,7 @@ void SelfRevocationAuthService::handleMessage(cMessage* msg)
         revokeRandomCertificate();
         scheduleAt(simTime() + mRevocationInterval, msg);
     } else if (auto* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(msg)) {
+        std::cout << "got enrollment" << std::endl;
         handleEnrollmentRequest(enrollmentRequest);
         delete msg;
     } else {
@@ -149,13 +150,13 @@ void SelfRevocationAuthService::revokeRandomCertificate()
         return;
     }
 
-    size_t totalCertificates = mIssuedCertificates.size() + mMasterPRL.size();
-    double currentRevocationRate = static_cast<double>(mMasterPRL.size()) / totalCertificates;
+    // size_t totalCertificates = mIssuedCertificates.size() + mMasterPRL.size();
+    // double currentRevocationRate = static_cast<double>(mMasterPRL.size()) / totalCertificates;
 
-    if (currentRevocationRate >= MAX_REVOCATION_RATE) {
-        std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
-        return;
-    }
+    // if (currentRevocationRate >= MAX_REVOCATION_RATE) {
+    //     std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
+    //     return;
+    // }
 
     auto it = mIssuedCertificates.begin();
     std::advance(it, intrand(mIssuedCertificates.size()));
@@ -186,6 +187,7 @@ void SelfRevocationAuthService::removeExpiredRevocations()
     while (it != mMasterPRL.end()) {
         double entryAge = currentTime - it->second;
         if (entryAge > mTeff) {
+            Logger::log("PRL_REMOVE," + std::to_string(currentTime) + "," + convertToHexString(it->first) + ",Age:" + std::to_string(entryAge));
             it = mMasterPRL.erase(it);
             removedCount++;
         } else {

@@ -53,16 +53,17 @@ double ActiveRevocationMetrics::calculateAverageCRLMessageSize() const
 void ActiveRevocationMetrics::printMetrics() const
 {
     std::cout << "=== Active Revocation Metrics ===\n";
-    std::cout << "Average CRL Size: " << calculateAverageCRLSize() << " entries\n";
     std::cout << "Maximum CRL Size: " << getMaxCRLSize() << " entries\n";
     std::cout << "Total CRL Distribution Overhead: " << calculateTotalCRLOverhead() << " bytes\n";
     std::cout << "Average CRL Message Size: " << calculateAverageCRLMessageSize() << " bytes\n";
+    // std::cout << "Average V2V Message Processing Time: " << calculateAverageV2VProcessingTime() << " seconds\n";
     std::cout << "================================\n";
 }
 
 void ActiveRevocationMetrics::exportToCSV(const std::string& filename) const
 {
     std::ofstream file(filename);
+    // file << "Simulation Time,CRL Size,CRL Message Size,V2V Processing Time\n";
     file << "Simulation Time,CRL Size,CRL Message Size\n";
 
     size_t crlIndex = 0;
@@ -78,6 +79,27 @@ void ActiveRevocationMetrics::exportToCSV(const std::string& filename) const
             distributionIndex++;
         }
     }
+
+    // for (const auto& entry : v2vProcessingTimes) {
+    //     file << entry.simulationTime << ",,," << entry.processingTime << "\n";
+    // }
+}
+
+void ActiveRevocationMetrics::recordV2VProcessingTime(double processingTime, double simulationTime)
+{
+    v2vProcessingTimes.push_back({processingTime, simulationTime});
+}
+
+// Add a method to calculate average processing time
+double ActiveRevocationMetrics::calculateAverageV2VProcessingTime() const
+{
+    if (v2vProcessingTimes.empty())
+        return 0.0;
+
+    double sum = std::accumulate(
+        v2vProcessingTimes.begin(), v2vProcessingTimes.end(), 0.0, [](double acc, const V2VProcessingEntry& entry) { return acc + entry.processingTime; });
+
+    return sum / v2vProcessingTimes.size();
 }
 
 // void ActiveRevocationMetrics::recordMessageDiscard(const std::string& hashedId, const std::string& discardingVehicleId, double timestamp)

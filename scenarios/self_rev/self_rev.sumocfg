@@ -9,5 +9,5 @@
         <net-file value="/root/artery/scenarios/self_rev/self_rev.net.xml"/>
         <route-files value="/root/artery/scenarios/self_rev/self_rev.rou.xml"/>
     </input>
-
+    <start value="true"/>
 </configuration>

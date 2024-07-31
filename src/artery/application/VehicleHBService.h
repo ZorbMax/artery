@@ -1,7 +1,6 @@
 #ifndef VEHICLE_HBSERVICE_H
 #define VEHICLE_HBSERVICE_H
 
-#include "CertificateManager.h"
 #include "HBMessageHandler.h"
 #include "HBMessage_m.h"
 #include "ItsG5Service.h"
@@ -40,7 +39,6 @@ private:
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
     vanetza::security::Certificate mPseudonymCertificate;
-    std::unique_ptr<CertificateManager> mCertificateManager;
     std::unique_ptr<V2VMessageHandler> mV2VHandler;
     std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
     std::unique_ptr<HBMessageHandler> mHBHandler;

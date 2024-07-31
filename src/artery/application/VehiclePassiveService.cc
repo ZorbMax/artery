@@ -68,6 +68,7 @@ void VehiclePassiveService::indicate(const vanetza::btp::DataIndication& ind, om
 
     if (auto* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet)) {
         if (mState == VehicleState::ENROLLED) {
+            delete pseudonymMessage;
             return;
         }
         handlePseudonymMessage(pseudonymMessage);

@@ -54,7 +54,6 @@ void VehicleHBService::initialize()
     mKeyPair = mBackend->generate_key_pair();
     auto tempPseudonym = GenerateRoot(mKeyPair);
 
-    mCertificateManager = std::unique_ptr<CertificateManager>(new CertificateManager());
     mPseudonymHandler = std::unique_ptr<PseudonymMessageHandler>(new PseudonymMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
     mHBHandler = std::unique_ptr<HBMessageHandler>(new HBMessageHandler(mBackend.get(), mKeyPair, tempPseudonym));
 

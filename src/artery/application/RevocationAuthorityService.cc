@@ -47,8 +47,8 @@ void RevocationAuthorityService::initialize()
     Logger::log("Simulation started, logger initialized");
 
     mMetrics = std::unique_ptr<ActiveRevocationMetrics>(new ActiveRevocationMetrics());
-    mCrlGenInterval = par("crlGenInterval");
-    mRevocationInterval = par("revocationInterval");
+    mCrlGenInterval = par("crlGenInterval").doubleValue();
+    mRevocationInterval = par("revocationInterval").doubleValue();
 
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
@@ -142,13 +142,13 @@ void RevocationAuthorityService::revokeRandomCertificate()
         return;
     }
 
-    size_t totalCertificates = mIssuedCertificates.size() + mMasterCRL.size();
-    double currentRevocationRate = static_cast<double>(mMasterCRL.size()) / totalCertificates;
+    // size_t totalCertificates = mIssuedCertificates.size() + mMasterCRL.size();
+    // double currentRevocationRate = static_cast<double>(mMasterCRL.size()) / totalCertificates;
 
-    if (currentRevocationRate >= MAX_REVOCATION_RATE) {
-        std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
-        return;
-    }
+    // if (currentRevocationRate >= MAX_REVOCATION_RATE) {
+    //     std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
+    //     return;
+    // }
 
     auto it = mIssuedCertificates.begin();
     std::advance(it, intrand(mIssuedCertificates.size()));
