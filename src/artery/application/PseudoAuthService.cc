@@ -115,7 +115,7 @@ void PseudoAuthService::revokeRandomCertificate()
 
     std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mMasterCRL.size() << std::endl;
 
-    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
+    // mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
 
     // std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
 }

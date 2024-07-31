@@ -106,7 +106,7 @@ void VehiclePassiveService::trigger()
 bool VehiclePassiveService::checkEnrolled()
 {
     auto time_now = vanetza::Clock::at(boost::posix_time::microsec_clock::universal_time());
-    return mPseudonymTime < convert_time32(time_now);
+    return convert_time32(time_now) < mPseudonymTime;
 }
 
 void VehiclePassiveService::handlePseudonymMessage(PseudonymMessage* pseudonymMessage)
