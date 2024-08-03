@@ -16,7 +16,7 @@ public:
     void recordCertificateIssuance(const vanetza::security::HashedId8& hashedId, double simulationTime);
 
     void printMetrics() const;
-    void exportToCSV(const std::string& filename) const;
+    void exportToCSV() const;
 
 private:
     struct CertificateEvent {

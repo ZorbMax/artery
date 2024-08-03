@@ -41,7 +41,12 @@ protected:
 
     std::map<std::string, vanetza::security::Certificate> mIssuedCertificates;
 
-    double mRevocationInterval;
+    double mMinRevocationInterval;
+    double mMaxRevocationInterval;
+    double mDropProbability;
+    double mDelayProbability;
+    double mDelayMean;
+    double mDelayStdDev;
 };
 
 }  // namespace artery

@@ -23,6 +23,8 @@ protected:
     HBMessage* createAndPopulateHeartbeat();
     void revokeRandomCertificate() override;
     void removeExpiredRevocations();
+    void sendHeartbeat(HBMessage* hbMessage);
+    void scheduleNextRevocation();
 
 private:
     std::unique_ptr<SelfRevocationMetrics> mMetrics;
@@ -32,7 +34,6 @@ private:
     double mTv;
     double mTeff;
     omnetpp::simtime_t mHeartbeatInterval;
-    omnetpp::simtime_t mRevocationInterval;
 
     static const double MAX_REVOCATION_RATE;
     static const vanetza::ItsAid HB_ITS_AID = 622;

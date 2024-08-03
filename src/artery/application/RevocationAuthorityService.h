@@ -22,6 +22,7 @@ protected:
     void generateAndSendCRL();
     CRLMessage* createAndPopulateCRL();
     void revokeRandomCertificate();
+    void sendCRL(CRLMessage* crlMessage);
 
 private:
     std::unique_ptr<ActiveRevocationMetrics> mMetrics;

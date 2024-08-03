@@ -82,7 +82,7 @@ void SelfRevocationMetrics::printMetrics() const
     std::cout << "Revocation Rate: " << calculateRevocationRate() * 100 << "%\n";
 }
 
-void SelfRevocationMetrics::exportToCSV(const std::string& baseFilename) const
+void SelfRevocationMetrics::exportToCSV() const
 {
     // Certificate events CSV
     // std::ofstream certFile("certificates.csv");

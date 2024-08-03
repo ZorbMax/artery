@@ -50,6 +50,11 @@ void RevocationAuthorityService::initialize()
     mCrlGenInterval = par("crlGenInterval").doubleValue();
     mRevocationInterval = par("revocationInterval").doubleValue();
 
+    mDropProbability = par("dropProbability").doubleValue();
+    mDelayProbability = par("delayProbability").doubleValue();
+    mDelayMean = par("delayMean").doubleValue();
+    mDelayStdDev = par("delayStdDev").doubleValue();
+
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
 }
@@ -74,31 +79,52 @@ void RevocationAuthorityService::handleMessage(cMessage* msg)
     } else if (strcmp(msg->getName(), "triggerRevocation") == 0) {
         revokeRandomCertificate();
         scheduleAt(simTime() + mRevocationInterval, msg);
-    } else if (dynamic_cast<EnrollmentRequest*>(msg)) {
-        handleEnrollmentRequest(static_cast<EnrollmentRequest*>(msg));
+    } else if (auto* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(msg)) {
+        handleEnrollmentRequest(enrollmentRequest);
         delete msg;
+    } else if (auto* crlMessage = dynamic_cast<CRLMessage*>(msg)) {
+        std::cout << "Sending delayed CRL..." << std::endl;
+        sendCRL(crlMessage);
     } else {
         ItsG5Service::handleMessage(msg);
     }
+}
+
+void RevocationAuthorityService::sendCRL(CRLMessage* crlMessage)
+{
+    vanetza::btp::DataRequestB req;
+    req.destination_port = vanetza::host_cast(getPortNumber());
+    req.gn.transport_type = vanetza::geonet::TransportType::SHB;
+    req.gn.traffic_class.tc_id(static_cast<unsigned>(vanetza::dcc::Profile::DP3));
+    req.gn.communication_profile = vanetza::geonet::CommunicationProfile::ITS_G5;
+    req.gn.its_aid = CRL_ITS_AID;
+
+    request(req, crlMessage);
+    std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
 }
 
 void RevocationAuthorityService::generateAndSendCRL()
 {
     CRLMessage* crlMessage = createAndPopulateCRL();
 
-    btp::DataRequestB req;
-    req.destination_port = host_cast(getPortNumber());
-    req.gn.transport_type = geonet::TransportType::SHB;
-    req.gn.traffic_class.tc_id(static_cast<unsigned>(dcc::Profile::DP3));
-    req.gn.communication_profile = geonet::CommunicationProfile::ITS_G5;
-    req.gn.its_aid = CRL_ITS_AID;
-
-    request(req, crlMessage);
+    // Simulate network conditions
+    double rand = uniform(0, 1);
+    if (rand < mDropProbability) {
+        delete crlMessage;
+        std::cout << "CRL dropped due to simulated network loss" << std::endl;
+        return;
+    } else if (rand < mDropProbability + mDelayProbability) {
+        simtime_t delay = normal(mDelayMean, mDelayStdDev);
+        scheduleAt(simTime() + delay, crlMessage);
+        std::cout << "CRL delayed by " << delay << " seconds" << std::endl;
+        return;
+    }
 
     size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
     mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
+    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
 
-    std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
+    sendCRL(crlMessage);
 }
 
 CRLMessage* RevocationAuthorityService::createAndPopulateCRL()
@@ -142,32 +168,35 @@ void RevocationAuthorityService::revokeRandomCertificate()
         return;
     }
 
-    // size_t totalCertificates = mIssuedCertificates.size() + mMasterCRL.size();
-    // double currentRevocationRate = static_cast<double>(mMasterCRL.size()) / totalCertificates;
+    // Determine the number of certificates to revoke (1 to 5)
+    int numRevocations = intrand(5) + 1;
 
-    // if (currentRevocationRate >= MAX_REVOCATION_RATE) {
-    //     std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
-    //     return;
-    // }
+    for (int i = 0; i < numRevocations; ++i) {
+        if (mIssuedCertificates.empty()) {
+            break;
+        }
 
-    auto it = mIssuedCertificates.begin();
-    std::advance(it, intrand(mIssuedCertificates.size()));
+        // Define a range for recent enrollments (e.g., last 25% of certificates)
+        size_t recentEnrollmentCount = std::max(size_t(1), mIssuedCertificates.size() / 4);
 
-    vanetza::security::HashedId8 hashedId = calculate_hash(it->second);
+        // Select a random certificate from the recent enrollments
+        auto it = mIssuedCertificates.end();
+        std::advance(it, -static_cast<long>(intrand(recentEnrollmentCount) + 1));
 
-    if (std::find(mMasterCRL.begin(), mMasterCRL.end(), hashedId) == mMasterCRL.end()) {
-        mMasterCRL.push_back(hashedId);
+        vanetza::security::HashedId8 hashedId = calculate_hash(it->second);
+
+        if (std::find(mMasterCRL.begin(), mMasterCRL.end(), hashedId) == mMasterCRL.end()) {
+            mMasterCRL.push_back(hashedId);
+        }
+
+        std::string vehicleId = it->first;
+        mIssuedCertificates.erase(it);
+
+        std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mMasterCRL.size() << std::endl;
+
+        std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
+        Logger::log(logEntry);
     }
-
-    std::string vehicleId = it->first;
-    mIssuedCertificates.erase(it);
-
-    std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mMasterCRL.size() << std::endl;
-
-    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
-
-    std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
-    Logger::log(logEntry);
 }
 
 // namespace artery

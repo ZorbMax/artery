@@ -29,14 +29,12 @@ void CentralAuthService::initialize()
     } else {
         std::cerr << "Error: BackendCryptoPP is nullptr" << std::endl;
     }
-
-    mRevocationInterval = 5.0;
 }
 
 void CentralAuthService::indicate(const vanetza::btp::DataIndication& ind, cPacket* packet, const NetworkInterface& net)
 {
     Enter_Method("indicate");
-    //std::cout << "hello indiciate" << std::endl;
+    // std::cout << "hello indiciate" << std::endl;
     if (packet) {
         EnrollmentRequest* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(packet);
         if (enrollmentRequest) {

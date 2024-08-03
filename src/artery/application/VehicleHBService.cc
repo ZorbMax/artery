@@ -169,7 +169,7 @@ void VehicleHBService::handleHBMessage(HBMessage* heartbeatMessage)
             const vanetza::security::HashedId8& revokedId = heartbeatMessage->getPRL(i);
             if (revokedId == ownHash) {
                 performSelfRevocation();
-                Logger::log("SELF_REVOKE," + std::to_string(simTime().dbl()) + "," + hashedId8ToHexString(ownHash));
+                // Logger::log("SELF_REVOKE," + std::to_string(simTime().dbl()) + "," + hashedId8ToHexString(ownHash));
                 return;
             }
         }
@@ -181,7 +181,7 @@ void VehicleHBService::handleHBMessage(HBMessage* heartbeatMessage)
 void VehicleHBService::handleV2VMessage(V2VMessage* v2vMessage)
 {
     if (mState != VehicleState::ENROLLED) {
-        std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
+        // std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
         return;
     }
 
@@ -196,9 +196,9 @@ void VehicleHBService::handleV2VMessage(V2VMessage* v2vMessage)
         return;
     }
 
-    auto& vehicle = getFacilities().get_const<traci::VehicleController>();
-    std::string id = vehicle.getVehicleId();
-    std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
+    vanetza::security::Certificate pseudo = v2vMessage->getCertificate();
+    vanetza::security::HashedId8 hashedId = calculate_hash(pseudo);
+    Logger::log("RECV," + std::to_string(simTime().dbl()) + "," + hashedId8ToHexString(hashedId));
 }
 
 void VehicleHBService::checkDesynchronization(simtime_t messageTimestamp)
