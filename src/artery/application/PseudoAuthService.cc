@@ -58,10 +58,10 @@ void PseudoAuthService::finish()
 void PseudoAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
 {
     std::string vehicleId = request->getVehicleId();
-    std::cout << "Processing Pseudonym request from vehicle: " << vehicleId << std::endl;
+    // std::cout << "Processing Pseudonym request from vehicle: " << vehicleId << std::endl;
 
-    if (std::find(mMasterCRL.begin(), mMasterCRL.end(), vehicleId) != mMasterCRL.end()) {
-        std::cout << "Pseudonym request denied from vehicle: " << vehicleId << std::endl;
+    if (std::find(mRevocationList.begin(), mRevocationList.end(), vehicleId) != mRevocationList.end()) {
+        // std::cout << "Pseudonym request denied from vehicle: " << vehicleId << std::endl;
         return;
     }
 
@@ -90,14 +90,14 @@ void PseudoAuthService::handleMessage(cMessage* msg)
     }
 }
 
-void PseudoAuthService::revokeRandomCertificate()
+void PseudoAuthService::revokeRandomId()
 {
     if (mIssuedCertificates.empty()) {
         return;
     }
 
-    size_t totalCertificates = mIssuedCertificates.size() + mMasterCRL.size();
-    double currentRevocationRate = static_cast<double>(mMasterCRL.size()) / totalCertificates;
+    size_t totalCertificates = mIssuedCertificates.size() + mRevocationList.size();
+    double currentRevocationRate = static_cast<double>(mRevocationList.size()) / totalCertificates;
 
     if (currentRevocationRate >= MAX_REVOCATION_RATE) {
         std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
@@ -108,16 +108,12 @@ void PseudoAuthService::revokeRandomCertificate()
     std::advance(it, intrand(mIssuedCertificates.size()));
     std::string vehicleId = it->first;
 
-    if (std::find(mMasterCRL.begin(), mMasterCRL.end(), vehicleId) == mMasterCRL.end()) {
-        mMasterCRL.push_back(vehicleId);
+    if (std::find(mRevocationList.begin(), mRevocationList.end(), vehicleId) == mRevocationList.end()) {
+        mRevocationList.push_back(vehicleId);
     }
     mIssuedCertificates.erase(it);
 
-    std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mMasterCRL.size() << std::endl;
-
-    // mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
-
-    // std::string logEntry = "REVOCATION_START," + std::to_string(simTime().dbl()) + "," + convertToHexString(hashedId);
+    std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mRevocationList.size() << std::endl;
 }
 
 }  // namespace artery

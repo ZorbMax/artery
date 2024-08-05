@@ -18,10 +18,10 @@ public:
 
 protected:
     void handleEnrollmentRequest(EnrollmentRequest* request) override;
-    void revokeRandomCertificate();
+    void revokeRandomId();
 
 private:
-    std::vector<std::string> mMasterCRL;
+    std::vector<std::string> mRevocationList;
 
     omnetpp::simtime_t mRevocationInterval;
 

@@ -75,7 +75,7 @@ void VehiclePassiveService::indicate(const vanetza::btp::DataIndication& ind, om
     } else if (auto* v2vMessage = dynamic_cast<V2VMessage*>(packet)) {
         handleV2VMessage(v2vMessage);
     } else {
-        std::cout << "Unknown message type. Ignoring." << std::endl;
+        // std::cout << "Unknown message type. Ignoring." << std::endl;
     }
 
     delete packet;
@@ -141,7 +141,7 @@ void VehiclePassiveService::handlePseudonymMessage(PseudonymMessage* pseudonymMe
 void VehiclePassiveService::handleV2VMessage(V2VMessage* v2vMessage)
 {
     if (mState != VehicleState::ENROLLED) {
-        std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
+        // std::cout << "Vehicle is not enrolled. Dropping message." << std::endl;
         return;
     }
 
@@ -153,10 +153,10 @@ void VehiclePassiveService::handleV2VMessage(V2VMessage* v2vMessage)
         std::string receiverId = vehicle.getVehicleId();
         std::string senderId = v2vMessage->getPayload();
 
-        std::cout << "=== MESSAGE DISCARDED ===" << std::endl
-                  << "Receiving vehicle: " << receiverId << std::endl
-                  << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl
-                  << "=========================" << std::endl;
+        //std::cout << "=== MESSAGE DISCARDED ===" << std::endl
+        //          << "Receiving vehicle: " << receiverId << std::endl
+        //          << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl
+        //          << "=========================" << std::endl;
     }
 
     if (!mV2VHandler->verifyV2VSignature(v2vMessage)) {
@@ -165,7 +165,7 @@ void VehiclePassiveService::handleV2VMessage(V2VMessage* v2vMessage)
 
     auto& vehicle = getFacilities().get_const<traci::VehicleController>();
     std::string id = vehicle.getVehicleId();
-    std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
+    // std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
 }
 
 bool VehiclePassiveService::isRevoked(const vanetza::security::Certificate& certificate) const
@@ -216,7 +216,7 @@ void VehiclePassiveService::sendV2VMessage()
     V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
     v2vMessage->setCertificate(mPseudonymCertificate);
     request(req, v2vMessage);
-    std::cout << "V2V message sent." << std::endl;
+    // std::cout << "V2V message sent." << std::endl;
 }
 
 void VehiclePassiveService::handleMessage(omnetpp::cMessage* msg)
@@ -228,15 +228,5 @@ void VehiclePassiveService::handleMessage(omnetpp::cMessage* msg)
         ItsG5Service::handleMessage(msg);
     }
 }
-
-std::string VehiclePassiveService::convertToHexString(const vanetza::security::HashedId8& hashedId)
-{
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (uint8_t byte : hashedId) {
-        ss << std::setw(2) << static_cast<int>(byte);
-    }
-    return ss.str();
-}  
 
 }  // namespace artery

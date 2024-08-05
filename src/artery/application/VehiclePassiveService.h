@@ -40,7 +40,6 @@ private:
     bool checkEnrolled();
     void sendEnrollmentRequest();
     void sendV2VMessage();
-    std::string convertToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;
@@ -50,7 +49,6 @@ private:
     std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
     
     VehicleState mState = VehicleState::NOT_ENROLLED;
-    std::vector<vanetza::security::HashedId8> mLocalCRL;
 
     static const vanetza::ItsAid ENROLLMENT_ITS_AID;
     static const vanetza::ItsAid V2V_ITS_AID;
