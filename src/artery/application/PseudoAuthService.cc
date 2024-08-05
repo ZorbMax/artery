@@ -46,6 +46,10 @@ void PseudoAuthService::initialize()
     CentralAuthService::initialize();
 
     mRevocationInterval = par("revocationInterval");
+    mDropProbability = par("dropProbability").doubleValue();
+    mDelayProbability = par("delayProbability").doubleValue();
+    mDelayMean = par("delayMean").doubleValue();
+    mDelayStdDev = par("delayStdDev").doubleValue();
 
     scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
 }
@@ -58,10 +62,9 @@ void PseudoAuthService::finish()
 void PseudoAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
 {
     std::string vehicleId = request->getVehicleId();
-    // std::cout << "Processing Pseudonym request from vehicle: " << vehicleId << std::endl;
 
     if (std::find(mRevocationList.begin(), mRevocationList.end(), vehicleId) != mRevocationList.end()) {
-        // std::cout << "Pseudonym request denied from vehicle: " << vehicleId << std::endl;
+        std::cout << "Pseudonym request denied from vehicle: " << vehicleId << std::endl;
         return;
     }
 
@@ -85,6 +88,8 @@ void PseudoAuthService::handleMessage(cMessage* msg)
     } else if (dynamic_cast<EnrollmentRequest*>(msg)) {
         handleEnrollmentRequest(static_cast<EnrollmentRequest*>(msg));
         delete msg;
+    } else if (auto* pseudonymMessage = dynamic_cast<PseudonymMessage*>(msg)) {
+        sendPseudonym(pseudonymMessage);
     } else {
         ItsG5Service::handleMessage(msg);
     }
@@ -114,6 +119,39 @@ void PseudoAuthService::revokeRandomCertificate()
     mIssuedCertificates.erase(it);
 
     std::cout << "Vehicle " << vehicleId << " revoked. CRL size: " << mRevocationList.size() << std::endl;
+}
+
+void PseudoAuthService::generateandSendPseudo(
+    vanetza::security::Certificate& pseudoCert, vanetza::security::ecdsa256::PublicKey& publicKey, std::string& vehicleId)
+{
+    PseudonymMessage* pseudonymMessage = mPseudonymHandler->createPseudonymMessage(pseudoCert, publicKey, vehicleId);
+
+    double rand = uniform(0, 1);
+    if (rand < mDropProbability) {
+        delete pseudonymMessage;
+        std::cout << "Pseudonym certificate dropped for vehicle: " << vehicleId << std::endl;
+        return;
+    } else if (rand < mDropProbability + mDelayProbability) {
+        simtime_t delay = std::abs(normal(mDelayMean, mDelayStdDev));
+        scheduleAt(simTime() + delay, pseudonymMessage);
+        std::cout << "Pseudonym certificate delayed by " << delay << "s for vehicle: " << vehicleId << std::endl;
+        return;
+    }
+
+    sendPseudonym(pseudonymMessage);
+}
+
+void PseudoAuthService::sendPseudonym(PseudonymMessage* pseudonymMessage)
+{
+    vanetza::btp::DataRequestB req;
+    req.destination_port = vanetza::host_cast(getPortNumber());
+    req.gn.transport_type = vanetza::geonet::TransportType::SHB;
+    req.gn.traffic_class.tc_id(static_cast<unsigned>(vanetza::dcc::Profile::DP3));
+    req.gn.communication_profile = vanetza::geonet::CommunicationProfile::ITS_G5;
+    req.gn.its_aid = 622;
+
+    request(req, pseudonymMessage);
+    std::cout << "Pseudonym certificate sent for vehicle: " << pseudonymMessage->getPayload() << std::endl;
 }
 
 }  // namespace artery

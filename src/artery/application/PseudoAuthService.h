@@ -19,6 +19,11 @@ public:
 protected:
     void handleEnrollmentRequest(EnrollmentRequest* request) override;
     void revokeRandomCertificate();
+    void scheduleNextRevocation();
+    void scheduleNextBurstRevocation();
+    void revokeBurst();
+    void sendPseudonym(PseudonymMessage* pseudonymMessage);
+    void generateandSendPseudo(vanetza::security::Certificate& pseudoCert, vanetza::security::ecdsa256::PublicKey& publicKey, std::string& vehicleId);
 
 private:
     std::vector<std::string> mRevocationList;
@@ -30,4 +35,4 @@ private:
 
 }  // namespace artery
 
-#endif  //PSEUDO_AUTH_SERVICE_H
+#endif  // PSEUDO_AUTH_SERVICE_H

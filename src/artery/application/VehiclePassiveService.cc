@@ -98,11 +98,11 @@ void VehiclePassiveService::trigger()
                sendV2VMessage(); 
             } else {
                 mState = VehicleState::NOT_ENROLLED;
-                std::cout << "Renewing Pseudonym" << std::endl;
+                std::cout << "Renewing pseudonym" << std::endl;
             }
             break;
         case VehicleState::ENROLLMENT_REQUESTED:
-            if(simTime() - mRequestTime > 0.5){
+            if(simTime() - mRequestTime > 1){
                 sendEnrollmentRequest();
                 mRequestTime = simTime();
             }
