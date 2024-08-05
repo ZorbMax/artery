@@ -18,7 +18,7 @@ public:
 
 protected:
     void handleEnrollmentRequest(EnrollmentRequest* request) override;
-    void revokeRandomId();
+    void revokeRandomCertificate();
 
 private:
     std::vector<std::string> mRevocationList;

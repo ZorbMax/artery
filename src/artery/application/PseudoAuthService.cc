@@ -90,7 +90,7 @@ void PseudoAuthService::handleMessage(cMessage* msg)
     }
 }
 
-void PseudoAuthService::revokeRandomId()
+void PseudoAuthService::revokeRandomCertificate()
 {
     if (mIssuedCertificates.empty()) {
         return;
