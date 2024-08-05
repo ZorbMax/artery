@@ -57,7 +57,7 @@ void CentralAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
     std::string vehicleId = request->getVehicleId();
 
     HashedId8 rootHash = calculate_hash(mRootCert);
-    vanetza::security::Certificate pseudonymCert = GeneratePseudonym(rootHash, privateKey, vehiclePublicKey);
+    vanetza::security::Certificate pseudonymCert = GenerateCertificate(rootHash, privateKey, vehiclePublicKey);
 
     mIssuedCertificates[vehicleId] = pseudonymCert;
     recordCertificateIssuance(vehicleId, pseudonymCert);
