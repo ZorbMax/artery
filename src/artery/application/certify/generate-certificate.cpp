@@ -129,8 +129,8 @@ Certificate vanetza::security::GeneratePseudonym(const HashedId8& root_hash, ecd
     // section 6.7 in TS 103 097 v1.2.1
     // set validity restriction
     StartAndEndValidity start_and_end;
-    start_and_end.start_validity = convert_time32(time_now);
-    start_and_end.end_validity = convert_time32(time_now + std::chrono::seconds(30));
+    start_and_end.start_validity = convert_time32_adapted(omnetpp::simTime());
+    start_and_end.end_validity = convert_time32_adapted(omnetpp::simTime() + 30.0);
     certificate.validity_restriction.push_back(start_and_end);
 
     // std::cout << "Signing certificate... ";
@@ -142,4 +142,8 @@ Certificate vanetza::security::GeneratePseudonym(const HashedId8& root_hash, ecd
     // std::cout << "OK" << std::endl;
 
     return certificate;
+}
+
+Time32 vanetza::security::convert_time32_adapted(const omnetpp::simtime_t& simTime) {
+    return static_cast<Time32>(simTime.inUnit(omnetpp::SIMTIME_S));
 }

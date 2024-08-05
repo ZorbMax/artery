@@ -10,6 +10,7 @@
 #include "artery/traci/VehicleController.h"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
+#include "certify/generate-certificate.hpp"
 
 #include <arpa/inet.h>
 #include <omnetpp.h>
@@ -88,6 +89,7 @@ void VehiclePassiveService::trigger()
     switch (mState) {
         case VehicleState::NOT_ENROLLED:
             sendEnrollmentRequest();
+            mRequestTime = simTime();
             mState = VehicleState::ENROLLMENT_REQUESTED;
             break;
         case VehicleState::ENROLLED:
@@ -98,16 +100,20 @@ void VehiclePassiveService::trigger()
                 std::cout << "Renewing Pseudonym" << std::endl;
             }
             break;
+        case VehicleState::ENROLLMENT_REQUESTED:
+            if(simTime() - mRequestTime > 0.5){
+                mState = VehicleState::NOT_ENROLLED;
+            }   
+            break;
         default:
-            // Do nothing while waiting for enrollment response
             break;
     }
 }
 
 bool VehiclePassiveService::checkEnrolled()
 {
-    auto time_now = vanetza::Clock::at(boost::posix_time::microsec_clock::universal_time());
-    return convert_time32(time_now) < mPseudonymTime;
+    simtime_t time_now = simTime();
+    return convert_time32_adapted(time_now) < mPseudonymTime;
 }
 
 void VehiclePassiveService::handlePseudonymMessage(PseudonymMessage* pseudonymMessage)

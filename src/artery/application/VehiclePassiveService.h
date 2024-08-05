@@ -45,6 +45,7 @@ private:
     vanetza::security::ecdsa256::KeyPair mKeyPair;
     vanetza::security::Certificate mPseudonymCertificate;
     vanetza::security::Time32 mPseudonymTime;
+    omnetpp::simtime_t mRequestTime;
     std::unique_ptr<V2VMessageHandler> mV2VHandler;
     std::unique_ptr<PseudonymMessageHandler> mPseudonymHandler;
     
