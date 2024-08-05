@@ -182,11 +182,11 @@ bool VehiclePassiveService::isRevoked(const vanetza::security::Certificate& cert
     for (const auto& restriction : certificate.validity_restriction) {
         if (auto start_end = boost::get<StartAndEndValidity>(&restriction)) {
             // Accessing end_validity
-            Time32 validity = start_end->end_validity;
+            validity = start_end->end_validity;
         }
     }
-    auto time_now = vanetza::Clock::at(boost::posix_time::microsec_clock::universal_time());
-    return validity < convert_time32(time_now);
+    simtime_t time_now = simTime();
+    return validity < convert_time32_adapted(time_now);
 }
 
 void VehiclePassiveService::sendEnrollmentRequest()
