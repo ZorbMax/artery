@@ -88,6 +88,7 @@ void VehiclePassiveService::trigger()
 
     switch (mState) {
         case VehicleState::NOT_ENROLLED:
+            mKeyPair = mBackend->generate_key_pair();
             sendEnrollmentRequest();
             mRequestTime = simTime();
             mState = VehicleState::ENROLLMENT_REQUESTED;
@@ -102,8 +103,9 @@ void VehiclePassiveService::trigger()
             break;
         case VehicleState::ENROLLMENT_REQUESTED:
             if(simTime() - mRequestTime > 0.5){
-                mState = VehicleState::NOT_ENROLLED;
-            }   
+                sendEnrollmentRequest();
+                mRequestTime = simTime();
+            }
             break;
         default:
             break;
