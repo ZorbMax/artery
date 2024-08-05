@@ -79,7 +79,7 @@ void VehicleCRLService::indicate(const vanetza::btp::DataIndication& ind, omnetp
     } else if (auto* v2vMessage = dynamic_cast<V2VMessage*>(packet)) {
         handleV2VMessage(v2vMessage);
     } else {
-        std::cout << "Unknown message type. Ignoring." << std::endl;
+        // std::cout << "Unknown message type. Ignoring." << std::endl;
     }
 
     delete packet;
@@ -171,7 +171,7 @@ void VehicleCRLService::handleV2VMessage(V2VMessage* v2vMessage)
 
     auto& vehicle = getFacilities().get_const<traci::VehicleController>();
     std::string id = vehicle.getVehicleId();
-    std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
+    // std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
 }
 
 void VehicleCRLService::updateLocalCRL(const std::vector<vanetza::security::HashedId8>& revokedCertificates)
@@ -221,7 +221,7 @@ void VehicleCRLService::sendV2VMessage()
     V2VMessage* v2vMessage = mV2VHandler->createV2VMessage(id);
     v2vMessage->setCertificate(mPseudonymCertificate);
     request(req, v2vMessage);
-    std::cout << "V2V message sent." << std::endl;
+    // std::cout << "V2V message sent." << std::endl;
 }
 
 void VehicleCRLService::handleMessage(omnetpp::cMessage* msg)

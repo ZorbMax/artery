@@ -43,21 +43,85 @@ void RevocationAuthorityService::initialize()
 {
     CentralAuthService::initialize();
 
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    auto value = now_ms.time_since_epoch();
+    long seed = value.count();
+
+    std::cout << "Using seed based on system time: " << seed << endl;
+
+    // Get the configuration
+    cConfiguration* config = getEnvir()->getConfig();
+
+    // Initialize the RNG
+    getRNG(0)->initialize(seed, 0, 1, 0, 1, config);
+
     Logger::init("active_revocations.txt");
     Logger::log("Simulation started, logger initialized");
 
     mMetrics = std::unique_ptr<ActiveRevocationMetrics>(new ActiveRevocationMetrics());
     mCrlGenInterval = par("crlGenInterval").doubleValue();
-    mRevocationInterval = par("revocationInterval").doubleValue();
+    mMinRevocationInterval = par("minRevocationInterval").doubleValue();
+    mMaxRevocationInterval = par("maxRevocationInterval").doubleValue();
 
     mDropProbability = par("dropProbability").doubleValue();
     mDelayProbability = par("delayProbability").doubleValue();
     mDelayMean = par("delayMean").doubleValue();
     mDelayStdDev = par("delayStdDev").doubleValue();
 
+    std::string mode = par("revocationMode").stdstringValue();
+    if (mode == "interval") {
+        mRevocationMode = RevocationMode::INTERVAL;
+    } else if (mode == "burst") {
+        mRevocationMode = RevocationMode::BURST;
+
+        mBurstRevocationTimes = {1000, 2000};
+    } else {
+        throw cRuntimeError("Invalid revocation mode specified");
+    }
+
     scheduleAt(simTime() + mCrlGenInterval, new cMessage("triggerCRLGen"));
-    scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
+
+    if (mRevocationMode == RevocationMode::INTERVAL) {
+        scheduleNextRevocation();
+    } else {
+        scheduleNextBurstRevocation();
+    }
 }
+
+void RevocationAuthorityService::scheduleNextRevocation()
+{
+    simtime_t nextRevocation = uniform(mMinRevocationInterval, mMaxRevocationInterval);
+    scheduleAt(simTime() + nextRevocation, new cMessage("triggerRevocation"));
+}
+
+void RevocationAuthorityService::revokeBurst()
+{
+    int burstSize = 7;
+
+    for (int i = 0; i < burstSize; ++i) {
+        if (mIssuedCertificates.empty()) {
+            break;
+        }
+        revokeRandomCertificate();
+    }
+}
+
+void RevocationAuthorityService::scheduleNextBurstRevocation()
+{
+    simtime_t nextBurstTime = -1;
+    for (const auto& burstTime : mBurstRevocationTimes) {
+        if (burstTime > simTime()) {
+            nextBurstTime = burstTime;
+            break;
+        }
+    }
+
+    if (nextBurstTime != -1) {
+        scheduleAt(nextBurstTime, new cMessage("triggerRevocation"));
+    }
+}
+
 
 void RevocationAuthorityService::finish()
 {
@@ -77,8 +141,14 @@ void RevocationAuthorityService::handleMessage(cMessage* msg)
         generateAndSendCRL();
         scheduleAt(simTime() + mCrlGenInterval, msg);
     } else if (strcmp(msg->getName(), "triggerRevocation") == 0) {
-        revokeRandomCertificate();
-        scheduleAt(simTime() + mRevocationInterval, msg);
+        if (mRevocationMode == RevocationMode::INTERVAL) {
+            revokeRandomCertificate();
+            scheduleNextRevocation();
+        } else {
+            revokeBurst();
+            scheduleNextBurstRevocation();
+        }
+        delete msg;
     } else if (auto* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(msg)) {
         handleEnrollmentRequest(enrollmentRequest);
         delete msg;
@@ -99,6 +169,10 @@ void RevocationAuthorityService::sendCRL(CRLMessage* crlMessage)
     req.gn.communication_profile = vanetza::geonet::CommunicationProfile::ITS_G5;
     req.gn.its_aid = CRL_ITS_AID;
 
+    size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
+    mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
+    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
+
     request(req, crlMessage);
     std::cout << "CRL message sent. Revoked certificates: " << mMasterCRL.size() << std::endl;
 }
@@ -114,15 +188,11 @@ void RevocationAuthorityService::generateAndSendCRL()
         std::cout << "CRL dropped due to simulated network loss" << std::endl;
         return;
     } else if (rand < mDropProbability + mDelayProbability) {
-        simtime_t delay = normal(mDelayMean, mDelayStdDev);
+        simtime_t delay = std::abs(normal(mDelayMean, mDelayStdDev));
         scheduleAt(simTime() + delay, crlMessage);
         std::cout << "CRL delayed by " << delay << " seconds" << std::endl;
         return;
     }
-
-    size_t messageSize = sizeof(CRLMessage) + mMasterCRL.size() * sizeof(vanetza::security::HashedId8);
-    mMetrics->recordCRLDistribution(messageSize, simTime().dbl());
-    mMetrics->recordCRLSize(mMasterCRL.size(), simTime().dbl());
 
     sendCRL(crlMessage);
 }
@@ -169,7 +239,7 @@ void RevocationAuthorityService::revokeRandomCertificate()
     }
 
     // Determine the number of certificates to revoke (1 to 5)
-    int numRevocations = intrand(5) + 1;
+    int numRevocations = intrand(3) + 1;
 
     for (int i = 0; i < numRevocations; ++i) {
         if (mIssuedCertificates.empty()) {

@@ -41,6 +41,19 @@ void SelfRevocationAuthService::initialize()
 {
     CentralAuthService::initialize();
 
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    auto value = now_ms.time_since_epoch();
+    long seed = value.count();
+
+    std::cout << "Using seed based on system time: " << seed << endl;
+
+    // Get the configuration
+    cConfiguration* config = getEnvir()->getConfig();
+
+    // Initialize the RNG
+    getRNG(0)->initialize(seed, 0, 1, 0, 1, config);
+
     mMetrics.reset(new SelfRevocationMetrics());
     mTv = par("validityWindow").doubleValue();
     mHeartbeatInterval = par("heartbeatInterval").doubleValue();
@@ -53,8 +66,24 @@ void SelfRevocationAuthService::initialize()
     mDelayMean = par("delayMean").doubleValue();
     mDelayStdDev = par("delayStdDev").doubleValue();
 
+    std::string mode = par("revocationMode").stdstringValue();
+    if (mode == "interval") {
+        mRevocationMode = RevocationMode::INTERVAL;
+    } else if (mode == "burst") {
+        mRevocationMode = RevocationMode::BURST;
+
+        mBurstRevocationTimes = {100, 300};
+    } else {
+        throw cRuntimeError("Invalid revocation mode specified");
+    }
+
     scheduleAt(simTime() + mHeartbeatInterval, new cMessage("triggerHeartbeat"));
-    scheduleNextRevocation();
+
+    if (mRevocationMode == RevocationMode::INTERVAL) {
+        scheduleNextRevocation();
+    } else {
+        scheduleNextBurstRevocation();
+    }
 
     Logger::init("simulation_log.txt");
     std::cout << "Simulation started, logger initialized" << std::endl;
@@ -66,6 +95,33 @@ void SelfRevocationAuthService::scheduleNextRevocation()
 {
     simtime_t nextRevocation = uniform(mMinRevocationInterval, mMaxRevocationInterval);
     scheduleAt(simTime() + nextRevocation, new cMessage("triggerRevocation"));
+}
+
+void SelfRevocationAuthService::revokeBurst()
+{
+    int burstSize = 7;
+
+    for (int i = 0; i < burstSize; ++i) {
+        if (mIssuedCertificates.empty()) {
+            break;
+        }
+        revokeRandomCertificate();
+    }
+}
+
+void SelfRevocationAuthService::scheduleNextBurstRevocation()
+{
+    simtime_t nextBurstTime = -1;
+    for (const auto& burstTime : mBurstRevocationTimes) {
+        if (burstTime > simTime()) {
+            nextBurstTime = burstTime;
+            break;
+        }
+    }
+
+    if (nextBurstTime != -1) {
+        scheduleAt(nextBurstTime, new cMessage("triggerRevocation"));
+    }
 }
 
 void SelfRevocationAuthService::finish()
@@ -87,9 +143,15 @@ void SelfRevocationAuthService::handleMessage(cMessage* msg)
         mMetrics->recordActiveVehicleCount(mActiveVehicles.size(), simTime().dbl());
         scheduleAt(simTime() + mHeartbeatInterval, msg);
     } else if (msg->isName("triggerRevocation")) {
-        revokeRandomCertificate();
-        scheduleNextRevocation();
+        if (mRevocationMode == RevocationMode::INTERVAL) {
+            revokeRandomCertificate();
+            scheduleNextRevocation();
+        } else {
+            revokeBurst();
+            scheduleNextBurstRevocation();
+        }
         delete msg;
+
     } else if (auto* enrollmentRequest = dynamic_cast<EnrollmentRequest*>(msg)) {
         handleEnrollmentRequest(enrollmentRequest);
         delete msg;
@@ -129,7 +191,7 @@ void SelfRevocationAuthService::generateAndSendHeartbeat()
         std::cout << "Heartbeat dropped due to simulated network loss" << std::endl;
         return;
     } else if (rand < mDropProbability + mDelayProbability) {
-        simtime_t delay = normal(mDelayMean, mDelayStdDev);
+        simtime_t delay = std::abs(normal(mDelayMean, mDelayStdDev));
         scheduleAt(simTime() + delay, hbMessage);
         std::cout << "Heartbeat delayed by " << delay << " seconds" << std::endl;
         return;

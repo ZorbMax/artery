@@ -22,14 +22,16 @@ protected:
     void generateAndSendCRL();
     CRLMessage* createAndPopulateCRL();
     void revokeRandomCertificate();
+    void revokeBurst();
     void sendCRL(CRLMessage* crlMessage);
+    void scheduleNextRevocation();
+    void scheduleNextBurstRevocation();
 
 private:
     std::unique_ptr<ActiveRevocationMetrics> mMetrics;
     std::vector<vanetza::security::HashedId8> mMasterCRL;
 
     omnetpp::simtime_t mCrlGenInterval;
-    omnetpp::simtime_t mRevocationInterval;
 
     static const double MAX_REVOCATION_RATE;
     static const vanetza::ItsAid CRL_ITS_AID;

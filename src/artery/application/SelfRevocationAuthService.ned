@@ -12,4 +12,5 @@ simple SelfRevocationAuthService
         double delayProbability = default(0.35);
         double delayMean @unit(s) = default(2s);
         double delayStdDev @unit(s) = default(0.3s);
+        string revocationMode = default("interval");
 }

@@ -47,6 +47,11 @@ protected:
     double mDelayProbability;
     double mDelayMean;
     double mDelayStdDev;
+
+    enum class RevocationMode { INTERVAL, BURST };
+
+    RevocationMode mRevocationMode;
+    std::vector<omnetpp::simtime_t> mBurstRevocationTimes;
 };
 
 }  // namespace artery

@@ -22,9 +22,11 @@ protected:
     void generateAndSendHeartbeat();
     HBMessage* createAndPopulateHeartbeat();
     void revokeRandomCertificate() override;
+    void revokeBurst();
     void removeExpiredRevocations();
     void sendHeartbeat(HBMessage* hbMessage);
     void scheduleNextRevocation();
+    void scheduleNextBurstRevocation();
 
 private:
     std::unique_ptr<SelfRevocationMetrics> mMetrics;
