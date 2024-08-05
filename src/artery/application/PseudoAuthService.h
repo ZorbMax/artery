@@ -3,6 +3,7 @@
 
 #include "CRLMessage_m.h"
 #include "CentralAuthService.h"
+#include "PassiveRevocationMetrics.cc"
 
 #include <vector>
 
@@ -18,7 +19,7 @@ public:
 
 protected:
     void handleEnrollmentRequest(EnrollmentRequest* request) override;
-    void revokeRandomCertificate();
+    void revokeRandomCertificate() override;
     void scheduleNextRevocation();
     void scheduleNextBurstRevocation();
     void revokeBurst();
@@ -27,10 +28,9 @@ protected:
 
 private:
     std::vector<std::string> mRevocationList;
-
     omnetpp::simtime_t mRevocationInterval;
-
     static const double MAX_REVOCATION_RATE;
+     std::unique_ptr<PassiveRevocationMetrics> mMetrics;
 };
 
 }  // namespace artery

@@ -40,6 +40,7 @@ private:
     bool checkEnrolled();
     void sendEnrollmentRequest();
     void sendV2VMessage();
+    std::string hashedId8ToHexString(const vanetza::security::HashedId8& hashedId);
 
     std::unique_ptr<vanetza::security::BackendCryptoPP> mBackend;
     vanetza::security::ecdsa256::KeyPair mKeyPair;

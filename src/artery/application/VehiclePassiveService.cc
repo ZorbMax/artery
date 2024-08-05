@@ -8,9 +8,9 @@
 #include "V2VMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
 #include "artery/traci/VehicleController.h"
+#include "certify/generate-certificate.hpp"
 #include "certify/generate-key.hpp"
 #include "certify/generate-root.hpp"
-#include "certify/generate-certificate.hpp"
 
 #include <arpa/inet.h>
 #include <omnetpp.h>
@@ -65,7 +65,7 @@ void VehiclePassiveService::indicate(const vanetza::btp::DataIndication& ind, om
     if (!packet) {
         std::cout << "Received packet is nullptr. Ignoring." << std::endl;
         return;
-    } 
+    }
 
     if (auto* pseudonymMessage = dynamic_cast<PseudonymMessage*>(packet)) {
         if (mState == VehicleState::ENROLLED) {
@@ -94,15 +94,15 @@ void VehiclePassiveService::trigger()
             mState = VehicleState::ENROLLMENT_REQUESTED;
             break;
         case VehicleState::ENROLLED:
-            if(checkEnrolled()){
-               sendV2VMessage(); 
+            if (checkEnrolled()) {
+                sendV2VMessage();
             } else {
                 mState = VehicleState::NOT_ENROLLED;
                 std::cout << "Renewing pseudonym" << std::endl;
             }
             break;
         case VehicleState::ENROLLMENT_REQUESTED:
-            if(simTime() - mRequestTime > 1){
+            if (simTime() - mRequestTime > 1) {
                 sendEnrollmentRequest();
                 mRequestTime = simTime();
             }
@@ -160,11 +160,6 @@ void VehiclePassiveService::handleV2VMessage(V2VMessage* v2vMessage)
         auto& vehicle = getFacilities().get_const<traci::VehicleController>();
         std::string receiverId = vehicle.getVehicleId();
         std::string senderId = v2vMessage->getPayload();
-
-        //std::cout << "=== MESSAGE DISCARDED ===" << std::endl
-        //          << "Receiving vehicle: " << receiverId << std::endl
-        //          << "Sender's certificate is revoked. Dropping message from vehicle " << senderId << std::endl
-        //          << "=========================" << std::endl;
     }
 
     if (!mV2VHandler->verifyV2VSignature(v2vMessage)) {
@@ -173,6 +168,7 @@ void VehiclePassiveService::handleV2VMessage(V2VMessage* v2vMessage)
 
     auto& vehicle = getFacilities().get_const<traci::VehicleController>();
     std::string id = vehicle.getVehicleId();
+    Logger::log("RECV," + std::to_string(simTime().dbl()) + "," + hashedId8ToHexString(certHash));
     // std::cout << "Vehicle " << id << " got V2V from " << v2vMessage->getPayload() << std::endl;
 }
 
@@ -235,6 +231,17 @@ void VehiclePassiveService::handleMessage(omnetpp::cMessage* msg)
     } else {
         ItsG5Service::handleMessage(msg);
     }
+}
+
+// Helper function to convert HashedId8 to hex string
+std::string VehiclePassiveService::hashedId8ToHexString(const vanetza::security::HashedId8& hashedId)
+{
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (const auto& byte : hashedId) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
 }
 
 }  // namespace artery

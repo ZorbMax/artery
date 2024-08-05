@@ -2,6 +2,7 @@
 
 #include "CRLMessage_m.h"
 #include "EnrollmentRequest_m.h"
+#include "Logger.h"
 #include "PseudonymMessage_m.h"
 #include "artery/networking/GeoNetPacket.h"
 #include "certify/generate-certificate.hpp"
@@ -45,22 +46,46 @@ void PseudoAuthService::initialize()
 {
     CentralAuthService::initialize();
 
-    mRevocationInterval = par("revocationInterval");
+    Logger::init("passive_revocation_log.txt");
+    mMetrics = std::unique_ptr<PassiveRevocationMetrics>(new PassiveRevocationMetrics());
+
+    mMinRevocationInterval = par("minRevocationInterval").doubleValue();
+    mMaxRevocationInterval = par("maxRevocationInterval").doubleValue();
     mDropProbability = par("dropProbability").doubleValue();
     mDelayProbability = par("delayProbability").doubleValue();
     mDelayMean = par("delayMean").doubleValue();
     mDelayStdDev = par("delayStdDev").doubleValue();
 
-    scheduleAt(simTime() + mRevocationInterval, new cMessage("triggerRevocation"));
+    std::string mode = par("revocationMode").stdstringValue();
+    if (mode == "interval") {
+        mRevocationMode = RevocationMode::INTERVAL;
+    } else if (mode == "burst") {
+        mRevocationMode = RevocationMode::BURST;
+        mBurstRevocationTimes = {1000, 2000};  // You can adjust these times as needed
+    } else {
+        throw cRuntimeError("Invalid revocation mode specified");
+    }
+
+    if (mRevocationMode == RevocationMode::INTERVAL) {
+        scheduleNextRevocation();
+    } else {
+        scheduleNextBurstRevocation();
+    }
 }
 
 void PseudoAuthService::finish()
 {
     CentralAuthService::finish();
+
+    mMetrics->printMetrics();
+    mMetrics->exportToCSV("passive_revocation_metrics.csv");
 }
 
 void PseudoAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
 {
+    size_t messageSize = sizeof(EnrollmentRequest);
+    mMetrics->recordEnrollmentRequest(messageSize, simTime().dbl());
+
     std::string vehicleId = request->getVehicleId();
 
     if (std::find(mRevocationList.begin(), mRevocationList.end(), vehicleId) != mRevocationList.end()) {
@@ -77,14 +102,20 @@ void PseudoAuthService::handleEnrollmentRequest(EnrollmentRequest* request)
     mIssuedCertificates[vehicleId] = pseudonymCert;
     recordCertificateIssuance(vehicleId, pseudonymCert);
 
-    sendPseudonymCertificate(pseudonymCert, vehiclePublicKey, vehicleId);
+    generateandSendPseudo(pseudonymCert, vehiclePublicKey, vehicleId);
 }
 
 void PseudoAuthService::handleMessage(cMessage* msg)
 {
     if (strcmp(msg->getName(), "triggerRevocation") == 0) {
-        revokeRandomCertificate();
-        scheduleAt(simTime() + mRevocationInterval, msg);
+        if (mRevocationMode == RevocationMode::INTERVAL) {
+            revokeRandomCertificate();
+            scheduleNextRevocation();
+        } else {
+            revokeBurst();
+            scheduleNextBurstRevocation();
+        }
+        delete msg;
     } else if (dynamic_cast<EnrollmentRequest*>(msg)) {
         handleEnrollmentRequest(static_cast<EnrollmentRequest*>(msg));
         delete msg;
@@ -94,18 +125,9 @@ void PseudoAuthService::handleMessage(cMessage* msg)
         ItsG5Service::handleMessage(msg);
     }
 }
-
 void PseudoAuthService::revokeRandomCertificate()
 {
     if (mIssuedCertificates.empty()) {
-        return;
-    }
-
-    size_t totalCertificates = mIssuedCertificates.size() + mRevocationList.size();
-    double currentRevocationRate = static_cast<double>(mRevocationList.size()) / totalCertificates;
-
-    if (currentRevocationRate >= MAX_REVOCATION_RATE) {
-        std::cout << "Revocation skipped. Current rate: " << (currentRevocationRate * 100) << "% (max " << (MAX_REVOCATION_RATE * 100) << "%)" << std::endl;
         return;
     }
 
@@ -115,6 +137,8 @@ void PseudoAuthService::revokeRandomCertificate()
 
     if (std::find(mRevocationList.begin(), mRevocationList.end(), vehicleId) == mRevocationList.end()) {
         mRevocationList.push_back(vehicleId);
+        std::string logEntry = "REVOKE," + std::to_string(simTime().dbl()) + "," + vehicleId;
+        Logger::log(logEntry);
     }
     mIssuedCertificates.erase(it);
 
@@ -125,6 +149,9 @@ void PseudoAuthService::generateandSendPseudo(
     vanetza::security::Certificate& pseudoCert, vanetza::security::ecdsa256::PublicKey& publicKey, std::string& vehicleId)
 {
     PseudonymMessage* pseudonymMessage = mPseudonymHandler->createPseudonymMessage(pseudoCert, publicKey, vehicleId);
+
+    size_t messageSize = sizeof(PseudonymMessage);
+    mMetrics->recordPseudonymMessage(messageSize, simTime().dbl());
 
     double rand = uniform(0, 1);
     if (rand < mDropProbability) {
@@ -152,6 +179,39 @@ void PseudoAuthService::sendPseudonym(PseudonymMessage* pseudonymMessage)
 
     request(req, pseudonymMessage);
     std::cout << "Pseudonym certificate sent for vehicle: " << pseudonymMessage->getPayload() << std::endl;
+}
+
+void PseudoAuthService::scheduleNextRevocation()
+{
+    simtime_t nextRevocation = uniform(mMinRevocationInterval, mMaxRevocationInterval);
+    scheduleAt(simTime() + nextRevocation, new cMessage("triggerRevocation"));
+}
+
+void PseudoAuthService::revokeBurst()
+{
+    int burstSize = 7;
+
+    for (int i = 0; i < burstSize; ++i) {
+        if (mIssuedCertificates.empty()) {
+            break;
+        }
+        revokeRandomCertificate();
+    }
+}
+
+void PseudoAuthService::scheduleNextBurstRevocation()
+{
+    simtime_t nextBurstTime = -1;
+    for (const auto& burstTime : mBurstRevocationTimes) {
+        if (burstTime > simTime()) {
+            nextBurstTime = burstTime;
+            break;
+        }
+    }
+
+    if (nextBurstTime != -1) {
+        scheduleAt(nextBurstTime, new cMessage("triggerRevocation"));
+    }
 }
 
 }  // namespace artery
